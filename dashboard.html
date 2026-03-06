@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>案件管理ダッシュボード</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+
+  .header {
+    background: linear-gradient(135deg, #1a1f2e 0%, #16213e 100%);
+    border-bottom: 1px solid #2d3748;
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header h1 { font-size: 22px; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
+  .header h1 span { color: #667eea; }
+  .header .subtitle { font-size: 13px; color: #718096; margin-top: 3px; }
+  .last-updated { font-size: 12px; color: #4a5568; }
+
+  .container { padding: 24px 32px; max-width: 1600px; margin: 0 auto; }
+
+  /* KPI Cards */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .kpi-card {
+    background: linear-gradient(135deg, #1a1f2e, #1e2533);
+    border: 1px solid #2d3748;
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  .kpi-card.blue::before { background: linear-gradient(90deg, #667eea, #764ba2); }
+  .kpi-card.green::before { background: linear-gradient(90deg, #48bb78, #38a169); }
+  .kpi-card.orange::before { background: linear-gradient(90deg, #ed8936, #dd6b20); }
+  .kpi-card.purple::before { background: linear-gradient(90deg, #9f7aea, #805ad5); }
+  .kpi-label { font-size: 12px; color: #718096; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .kpi-value { font-size: 36px; font-weight: 800; color: #fff; line-height: 1; }
+  .kpi-value.blue { color: #667eea; }
+  .kpi-value.green { color: #48bb78; }
+  .kpi-value.orange { color: #ed8936; }
+  .kpi-value.purple { color: #9f7aea; }
+  .kpi-sub { font-size: 12px; color: #718096; margin-top: 6px; }
+  .kpi-icon { position: absolute; right: 16px; top: 16px; font-size: 28px; opacity: 0.15; }
+
+  /* Tab Navigation */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 20px;
+    background: #1a1f2e;
+    padding: 4px;
+    border-radius: 10px;
+    border: 1px solid #2d3748;
+    width: fit-content;
+  }
+  .tab-btn {
+    padding: 8px 20px;
+    border: none;
+    background: transparent;
+    color: #718096;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  .tab-btn:hover { color: #e2e8f0; background: #2d3748; }
+  .tab-btn.active { background: #667eea; color: #fff; }
+
+  /* Chart Grid */
+  .chart-grid {
+    display: grid;
+    gap: 20px;
+  }
+  .chart-grid-2 { grid-template-columns: 1fr 1fr; }
+  .chart-grid-3 { grid-template-columns: 2fr 1fr; }
+  .chart-grid-full { grid-template-columns: 1fr; }
+
+  .chart-card {
+    background: #1a1f2e;
+    border: 1px solid #2d3748;
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .chart-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e2e8f0;
+    margin-bottom: 4px;
+  }
+  .chart-subtitle {
+    font-size: 12px;
+    color: #718096;
+    margin-bottom: 16px;
+  }
+  .chart-container { position: relative; }
+
+  /* Table */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .data-table th {
+    background: #16213e;
+    color: #718096;
+    text-align: left;
+    padding: 10px 14px;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #2d3748;
+  }
+  .data-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #1e2533;
+    color: #e2e8f0;
+    vertical-align: middle;
+  }
+  .data-table tr:hover td { background: #1e2533; }
+  .data-table tr:last-child td { border-bottom: none; }
+
+  .rank-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 700;
+    margin-right: 6px;
+  }
+  .rank-1 { background: #f6e05e; color: #1a1a00; }
+  .rank-2 { background: #a0aec0; color: #1a1a1a; }
+  .rank-3 { background: #c05621; color: #fff; }
+  .rank-other { background: #2d3748; color: #718096; }
+
+  .progress-bar-wrap { display: flex; align-items: center; gap: 10px; }
+  .progress-bar { height: 6px; border-radius: 3px; flex: 1; background: #2d3748; overflow: hidden; }
+  .progress-bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+  .progress-label { font-size: 12px; color: #718096; white-space: nowrap; min-width: 50px; text-align: right; }
+
+  .status-badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge-done { background: #2d3748; color: #a0aec0; }
+  .badge-settled { background: #1c4532; color: #48bb78; }
+  .badge-pending { background: #2a1f3d; color: #9f7aea; }
+  .badge-negotiating { background: #2c1810; color: #ed8936; }
+
+  /* Tab content */
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Stacked bar legend */
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #a0aec0; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* Filter / Search */
+  .filter-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    align-items: center;
+  }
+  .filter-input {
+    background: #1e2533;
+    border: 1px solid #2d3748;
+    border-radius: 8px;
+    color: #e2e8f0;
+    padding: 8px 14px;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .filter-input:focus { border-color: #667eea; }
+  .filter-label { font-size: 12px; color: #718096; }
+
+  /* Scrollable table wrapper */
+  .table-scroll { max-height: 400px; overflow-y: auto; border-radius: 8px; }
+  .table-scroll::-webkit-scrollbar { width: 6px; }
+  .table-scroll::-webkit-scrollbar-track { background: #1a1f2e; }
+  .table-scroll::-webkit-scrollbar-thumb { background: #2d3748; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>案件管理 <span>ダッシュボード</span></h1>
+    <div class="subtitle">著作権侵害案件データ集計・分析</div>
+  </div>
+  <div class="last-updated">データ更新日: 2026-03-04</div>
+</div>
+
+<div class="container">
+
+  <!-- KPI Cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card blue">
+      <div class="kpi-icon">📋</div>
+      <div class="kpi-label">総案件数</div>
+      <div class="kpi-value blue" id="kpi-total">32,742</div>
+      <div class="kpi-sub">全登録案件</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-icon">✅</div>
+      <div class="kpi-label">受任済</div>
+      <div class="kpi-value green" id="kpi-mandated">15,378</div>
+      <div class="kpi-sub">受任率 <span id="kpi-mandate-rate">47.0%</span></div>
+    </div>
+    <div class="kpi-card orange">
+      <div class="kpi-icon">🤝</div>
+      <div class="kpi-label">和解成立</div>
+      <div class="kpi-value orange" id="kpi-settled">2,042</div>
+      <div class="kpi-sub">解決率 <span id="kpi-settle-rate">6.2%</span></div>
+    </div>
+    <div class="kpi-card purple">
+      <div class="kpi-icon">⚖️</div>
+      <div class="kpi-label">担当弁護士事務所</div>
+      <div class="kpi-value purple" id="kpi-offices">793</div>
+      <div class="kpi-sub">受任案件に関わる事務所数</div>
+    </div>
+  </div>
+
+  <!-- Tab Navigation -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('overview')">概要</button>
+    <button class="tab-btn" onclick="switchTab('trend')">登録推移</button>
+    <button class="tab-btn" onclick="switchTab('lawyers')">弁護士事務所</button>
+    <button class="tab-btn" onclick="switchTab('rights')">権利者</button>
+  </div>
+
+  <!-- Tab: Overview -->
+  <div id="tab-overview" class="tab-content active">
+    <div class="chart-grid chart-grid-2" style="margin-bottom: 20px;">
+      <div class="chart-card">
+        <div class="chart-title">受任ステータス分布</div>
+        <div class="chart-subtitle">全案件の受任状況</div>
+        <div class="chart-container" style="height: 260px;">
+          <canvas id="chart-mandate"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">和解ステータス分布</div>
+        <div class="chart-subtitle">全案件の和解・交渉状況</div>
+        <div class="chart-container" style="height: 260px;">
+          <canvas id="chart-settlement"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="chart-grid chart-grid-full">
+      <div class="chart-card">
+        <div class="chart-title">KMP進捗ステータス</div>
+        <div class="chart-subtitle">案件の進捗段階別内訳</div>
+        <div class="chart-container" style="height: 300px;">
+          <canvas id="chart-kmp"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Trend -->
+  <div id="tab-trend" class="tab-content">
+    <div class="chart-card" style="margin-bottom: 20px;">
+      <div class="chart-title">月別新規登録件数推移</div>
+      <div class="chart-subtitle">KMP登録日ベース（2021年10月〜2026年2月）</div>
+      <div class="chart-container" style="height: 360px;">
+        <canvas id="chart-trend"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">年別登録件数</div>
+      <div class="chart-subtitle">年次集計</div>
+      <div class="chart-container" style="height: 260px;">
+        <canvas id="chart-yearly"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Lawyers -->
+  <div id="tab-lawyers" class="tab-content">
+    <div class="chart-grid chart-grid-3" style="margin-bottom: 20px;">
+      <div class="chart-card">
+        <div class="chart-title">弁護士事務所別 和解ステータス</div>
+        <div class="chart-subtitle">上位15事務所の内訳（受任案件のみ）</div>
+        <div class="chart-container" style="height: 400px;">
+          <canvas id="chart-lawyer-stacked"></canvas>
+        </div>
+        <div class="legend" id="lawyer-legend"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">上位事務所 案件数</div>
+        <div class="chart-subtitle">受任案件数トップ10</div>
+        <div class="chart-container" style="height: 400px;">
+          <canvas id="chart-lawyer-doughnut"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">弁護士事務所一覧</div>
+      <div class="chart-subtitle">受任案件数・和解状況（受任案件全 15,378件）</div>
+      <div class="filter-bar">
+        <span class="filter-label">絞り込み:</span>
+        <input class="filter-input" type="text" id="lawyer-filter" placeholder="事務所名で検索..." oninput="filterTable('lawyer-table', this.value)">
+      </div>
+      <div class="table-scroll">
+        <table class="data-table" id="lawyer-table">
+          <thead>
+            <tr>
+              <th>順位</th>
+              <th>事務所名</th>
+              <th>受任数</th>
+              <th>和解成立</th>
+              <th>交渉中</th>
+              <th>未着手</th>
+              <th>終了</th>
+              <th>構成比</th>
+            </tr>
+          </thead>
+          <tbody id="lawyer-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Rights Holders -->
+  <div id="tab-rights" class="tab-content">
+    <div class="chart-grid chart-grid-2" style="margin-bottom: 20px;">
+      <div class="chart-card">
+        <div class="chart-title">権利者別 案件数（上位15社）</div>
+        <div class="chart-subtitle">全案件ベース</div>
+        <div class="chart-container" style="height: 380px;">
+          <canvas id="chart-rights-bar"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">権利者別 KMP進捗内訳（上位10社）</div>
+        <div class="chart-subtitle">各権利者の進捗ステータス構成</div>
+        <div class="chart-container" style="height: 380px;">
+          <canvas id="chart-rights-stacked"></canvas>
+        </div>
+        <div class="legend" id="rights-legend"></div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">権利者一覧</div>
+      <div class="chart-subtitle">案件数・進捗構成（全案件）</div>
+      <div class="filter-bar">
+        <span class="filter-label">絞り込み:</span>
+        <input class="filter-input" type="text" id="rights-filter" placeholder="権利者名で検索..." oninput="filterTable('rights-table', this.value)">
+      </div>
+      <div class="table-scroll">
+        <table class="data-table" id="rights-table">
+          <thead>
+            <tr>
+              <th>順位</th>
+              <th>権利者名</th>
+              <th>案件数</th>
+              <th>構成比</th>
+              <th>進捗（主要）</th>
+            </tr>
+          </thead>
+          <tbody id="rights-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ========================
+// DATA
+// ========================
+const DATA = {
+  total: 32742,
+  total_mandated: 15378,
+  mandate_status: {"未受任": 17363, "受任済": 15378, "受任確認中": 1},
+  settlement_status: {"終了": 13741, "和解成立": 2042, "未着手": 7264, "交渉中": 9695},
+  kmp_progress: {"時効": 1112, "終了": 12627, "分割入金中": 1549, "合意後入金中": 493, "登録済": 4751, "警告書": 5351, "在庫": 264, "交渉中": 507, "通知書発送": 3837, "未設定": 2251},
+  monthly_trend: [{"month":"2021-10","count":200},{"month":"2021-11","count":242},{"month":"2021-12","count":141},{"month":"2022-01","count":199},{"month":"2022-02","count":229},{"month":"2022-03","count":210},{"month":"2022-04","count":148},{"month":"2022-05","count":170},{"month":"2022-06","count":393},{"month":"2022-07","count":349},{"month":"2022-08","count":302},{"month":"2022-09","count":329},{"month":"2022-10","count":298},{"month":"2022-11","count":287},{"month":"2022-12","count":172},{"month":"2023-01","count":386},{"month":"2023-02","count":294},{"month":"2023-03","count":322},{"month":"2023-04","count":354},{"month":"2023-05","count":355},{"month":"2023-06","count":494},{"month":"2023-07","count":430},{"month":"2023-08","count":450},{"month":"2023-09","count":612},{"month":"2023-10","count":487},{"month":"2023-11","count":386},{"month":"2023-12","count":324},{"month":"2024-01","count":477},{"month":"2024-02","count":412},{"month":"2024-03","count":443},{"month":"2024-04","count":448},{"month":"2024-05","count":423},{"month":"2024-06","count":541},{"month":"2024-07","count":632},{"month":"2024-08","count":813},{"month":"2024-09","count":852},{"month":"2024-10","count":829},{"month":"2024-11","count":830},{"month":"2024-12","count":1215},{"month":"2025-01","count":1158},{"month":"2025-02","count":1275},{"month":"2025-03","count":975},{"month":"2025-04","count":1296},{"month":"2025-05","count":1029},{"month":"2025-06","count":892},{"month":"2025-07","count":808},{"month":"2025-08","count":794},{"month":"2025-09","count":951},{"month":"2025-10","count":587},{"month":"2025-11","count":751},{"month":"2025-12","count":1575},{"month":"2026-01","count":1723},{"month":"2026-02","count":198}],
+  top_rights_holders: [{"name":"有限会社プレステージ","count":7837},{"name":"株式会社ケイ・エム・プロデュース","count":6112},{"name":"株式会社CONT","count":3411},{"name":"SODクリエイト株式会社","count":1879},{"name":"株式会社EXstudio","count":1567},{"name":"三和出版株式会社","count":1405},{"name":"株式会社ナチュ","count":1065},{"name":"株式会社グルーヴ・ラボ","count":963},{"name":"株式会社Plum","count":918},{"name":"株式会社桃太郎","count":593},{"name":"有限会社ベンハー","count":534},{"name":"株式会社WILL","count":405},{"name":"株式会社オムプロダクション","count":400},{"name":"株式会社クイーンズロード","count":358},{"name":"ティーパワーズ株式会社","count":274},{"name":"TPJ株式会社","count":231},{"name":"エムズ・ファクトリー株式会社","count":220},{"name":"株式会社KSプロ","count":206},{"name":"エムケイエイチ株式会社","count":179},{"name":"株式会社ホットエンターテイメント","count":175}],
+  top_lawyer_offices: [{"name":"弁護士法人東京スカイ法律事務所","count":2888},{"name":"春田法律事務所","count":2333},{"name":"弁護士法人オリオン法律事務所川崎支部","count":2028},{"name":"弁護士法人岡山香川架け橋法律事務所香川オフィス","count":1231},{"name":"弁護士法人モノリス法律事務所","count":1114},{"name":"早河弘毅法律事務所","count":737},{"name":"力新堂法律事務所","count":574},{"name":"小松法律事務所","count":500},{"name":"ルーセント法律事務所","count":326},{"name":"弁護士法人AK法律事務所","count":251},{"name":"八重洲コモンズ法律事務所","count":192},{"name":"法律事務所Z富山オフィス","count":187},{"name":"有森FA法律事務所","count":155},{"name":"大阪グラディアトル法律事務所","count":150},{"name":"法律事務所Lapin","count":133},{"name":"トラスト弁護士法人","count":111},{"name":"弁護士法人AO","count":98},{"name":"大宮通り法律事務所","count":93},{"name":"渡瀨・國松法律事務所","count":78},{"name":"弁護士法人法の里","count":61}],
+  lawyer_settlement_detail: {"弁護士法人東京スカイ法律事務所":{"終了":1790,"和解成立":410,"未着手":636,"交渉中":52},"春田法律事務所":{"終了":1666,"和解成立":381,"未着手":275,"交渉中":11},"弁護士法人オリオン法律事務所川崎支部":{"終了":674,"未着手":1160,"交渉中":193,"和解成立":1},"弁護士法人岡山香川架け橋法律事務所香川オフィス":{"終了":141,"未着手":968,"交渉中":117,"和解成立":5},"弁護士法人モノリス法律事務所":{"終了":822,"和解成立":194,"未着手":94,"交渉中":4},"早河弘毅法律事務所":{"終了":23,"交渉中":160,"未着手":553,"和解成立":1},"力新堂法律事務所":{"終了":523,"和解成立":36,"未着手":15},"小松法律事務所":{"終了":478,"未着手":11,"和解成立":10,"交渉中":1},"ルーセント法律事務所":{"終了":236,"和解成立":57,"交渉中":1,"未着手":32},"弁護士法人AK法律事務所":{"終了":168,"未着手":69,"交渉中":4,"和解成立":10},"八重洲コモンズ法律事務所":{"交渉中":12,"未着手":173,"終了":7},"法律事務所Z富山オフィス":{"終了":1,"未着手":112,"交渉中":74},"有森FA法律事務所":{"終了":101,"和解成立":1,"未着手":50,"交渉中":3},"大阪グラディアトル法律事務所":{"終了":141,"未着手":8,"交渉中":1},"法律事務所Lapin":{"終了":52,"和解成立":9,"未着手":66,"交渉中":6}},
+  rh_progress_detail: {"有限会社プレステージ":{"終了":3306,"時効":1,"登録済":905,"合意後入金中":79,"在庫":89,"交渉中":168,"警告書":1847,"分割入金中":445,"通知書発送":997},"株式会社ケイ・エム・プロデュース":{"時効":760,"終了":3367,"分割入金中":309,"登録済":564,"警告書":629,"交渉中":83,"通知書発送":312,"合意後入金中":46,"在庫":42},"株式会社CONT":{"終了":1201,"警告書":976,"登録済":468,"分割入金中":170,"交渉中":87,"通知書発送":436,"在庫":37,"合意後入金中":36},"SODクリエイト株式会社":{"警告書":281,"終了":656,"在庫":15,"分割入金中":107,"登録済":437,"通知書発送":290,"交渉中":23,"合意後入金中":70},"株式会社EXstudio":{"終了":764,"時効":146,"分割入金中":78,"登録済":172,"交渉中":24,"警告書":217,"合意後入金中":11,"在庫":5,"通知書発送":150},"三和出版株式会社":{"登録済":218,"終了":498,"交渉中":43,"分割入金中":74,"警告書":401,"在庫":20,"通知書発送":139,"合意後入金中":12},"株式会社ナチュ":{"終了":249,"登録済":236,"警告書":148,"分割入金中":49,"合意後入金中":44,"通知書発送":320,"交渉中":15,"在庫":4},"株式会社グルーヴ・ラボ":{"終了":237,"分割入金中":44,"登録済":230,"警告書":172,"通知書発送":222,"合意後入金中":38,"交渉中":12,"在庫":8},"株式会社Plum":{"終了":297,"分割入金中":51,"登録済":178,"警告書":265,"通知書発送":86,"合意後入金中":24,"交渉中":9,"在庫":8},"株式会社桃太郎":{"終了":107,"登録済":176,"在庫":4,"分割入金中":19,"警告書":6,"通知書発送":257,"交渉中":2,"合意後入金中":22}}
+};
+
+// ========================
+// COLORS
+// ========================
+const COLORS = {
+  blue: '#667eea',
+  green: '#48bb78',
+  orange: '#ed8936',
+  purple: '#9f7aea',
+  red: '#fc8181',
+  teal: '#38b2ac',
+  pink: '#f687b3',
+  yellow: '#f6e05e',
+  indigo: '#7f9cf5',
+  lime: '#68d391',
+};
+
+const SETTLEMENT_COLORS = {
+  '終了': '#4a5568',
+  '和解成立': '#48bb78',
+  '未着手': '#9f7aea',
+  '交渉中': '#ed8936',
+};
+
+const KMP_COLORS = {
+  '終了': '#4a5568',
+  '警告書': '#ed8936',
+  '登録済': '#9f7aea',
+  '通知書発送': '#667eea',
+  '分割入金中': '#48bb78',
+  '未設定': '#2d3748',
+  '時効': '#fc8181',
+  '合意後入金中': '#38b2ac',
+  '交渉中': '#f6e05e',
+  '在庫': '#f687b3',
+};
+
+const CHART_DEFAULTS = {
+  plugins: {
+    legend: {
+      labels: { color: '#a0aec0', font: { size: 12 } }
+    }
+  }
+};
+
+Chart.defaults.color = '#a0aec0';
+Chart.defaults.borderColor = '#2d3748';
+
+// ========================
+// CHART: Mandate Status (Doughnut)
+// ========================
+new Chart(document.getElementById('chart-mandate'), {
+  type: 'doughnut',
+  data: {
+    labels: Object.keys(DATA.mandate_status),
+    datasets: [{
+      data: Object.values(DATA.mandate_status),
+      backgroundColor: ['#9f7aea', '#48bb78', '#ed8936'],
+      borderColor: '#1a1f2e',
+      borderWidth: 3,
+      hoverOffset: 8,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'bottom', labels: { color: '#a0aec0', padding: 16, font: {size: 12} } },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => {
+            const pct = (ctx.parsed / DATA.total * 100).toFixed(1);
+            return ` ${ctx.label}: ${ctx.parsed.toLocaleString()}件 (${pct}%)`;
+          }
+        }
+      }
+    },
+    cutout: '65%',
+  }
+});
+
+// ========================
+// CHART: Settlement Status (Doughnut)
+// ========================
+new Chart(document.getElementById('chart-settlement'), {
+  type: 'doughnut',
+  data: {
+    labels: Object.keys(DATA.settlement_status),
+    datasets: [{
+      data: Object.values(DATA.settlement_status),
+      backgroundColor: [
+        SETTLEMENT_COLORS['終了'],
+        SETTLEMENT_COLORS['和解成立'],
+        SETTLEMENT_COLORS['未着手'],
+        SETTLEMENT_COLORS['交渉中'],
+      ],
+      borderColor: '#1a1f2e',
+      borderWidth: 3,
+      hoverOffset: 8,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'bottom', labels: { color: '#a0aec0', padding: 16, font: {size: 12} } },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => {
+            const pct = (ctx.parsed / DATA.total * 100).toFixed(1);
+            return ` ${ctx.label}: ${ctx.parsed.toLocaleString()}件 (${pct}%)`;
+          }
+        }
+      }
+    },
+    cutout: '65%',
+  }
+});
+
+// ========================
+// CHART: KMP Progress (Bar)
+// ========================
+const kmpLabels = Object.keys(DATA.kmp_progress);
+const kmpValues = Object.values(DATA.kmp_progress);
+const kmpBgColors = kmpLabels.map(k => KMP_COLORS[k] || '#718096');
+
+new Chart(document.getElementById('chart-kmp'), {
+  type: 'bar',
+  data: {
+    labels: kmpLabels,
+    datasets: [{
+      label: '件数',
+      data: kmpValues,
+      backgroundColor: kmpBgColors,
+      borderRadius: 6,
+      borderSkipped: false,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => {
+            const pct = (ctx.parsed.y / DATA.total * 100).toFixed(1);
+            return ` ${ctx.parsed.y.toLocaleString()}件 (${pct}%)`;
+          }
+        }
+      }
+    },
+    scales: {
+      x: { grid: { color: '#1e2533' }, ticks: { color: '#a0aec0', font: {size: 12} } },
+      y: { grid: { color: '#1e2533' }, ticks: { color: '#a0aec0', callback: v => v.toLocaleString() } }
+    }
+  }
+});
+
+// ========================
+// CHART: Monthly Trend (Line)
+// ========================
+new Chart(document.getElementById('chart-trend'), {
+  type: 'line',
+  data: {
+    labels: DATA.monthly_trend.map(d => d.month),
+    datasets: [{
+      label: '新規登録件数',
+      data: DATA.monthly_trend.map(d => d.count),
+      borderColor: '#667eea',
+      backgroundColor: 'rgba(102,126,234,0.1)',
+      fill: true,
+      tension: 0.4,
+      pointRadius: 3,
+      pointHoverRadius: 6,
+      pointBackgroundColor: '#667eea',
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: (ctx) => ` ${ctx.parsed.y.toLocaleString()}件` } }
+    },
+    scales: {
+      x: { grid: { color: '#1e2533' }, ticks: { color: '#718096', maxTicksLimit: 18, font: {size: 11} } },
+      y: { grid: { color: '#1e2533' }, ticks: { color: '#a0aec0', callback: v => v.toLocaleString() } }
+    }
+  }
+});
+
+// ========================
+// CHART: Yearly
+// ========================
+const yearlyData = {};
+DATA.monthly_trend.forEach(d => {
+  const y = d.month.substring(0, 4);
+  yearlyData[y] = (yearlyData[y] || 0) + d.count;
+});
+new Chart(document.getElementById('chart-yearly'), {
+  type: 'bar',
+  data: {
+    labels: Object.keys(yearlyData),
+    datasets: [{
+      label: '年間登録件数',
+      data: Object.values(yearlyData),
+      backgroundColor: ['#2d3748','#4a5568','#667eea','#7f9cf5','#9f7aea','#b794f4'],
+      borderRadius: 6,
+      borderSkipped: false,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: (ctx) => ` ${ctx.parsed.y.toLocaleString()}件` } }
+    },
+    scales: {
+      x: { grid: { color: '#1e2533' }, ticks: { color: '#a0aec0' } },
+      y: { grid: { color: '#1e2533' }, ticks: { color: '#a0aec0', callback: v => v.toLocaleString() } }
+    }
+  }
+});
+
+// ========================
+// CHART: Lawyer Stacked Bar
+// ========================
+const lawyerNames = DATA.top_lawyer_offices.slice(0, 15).map(d => {
+  const name = d.name;
+  return name.length > 14 ? name.substring(0, 14) + '…' : name;
+});
+const lawyerNamesShort = DATA.top_lawyer_offices.slice(0, 15).map(d => d.name);
+const settlementKeys = ['和解成立', '交渉中', '未着手', '終了'];
+const settlementColors2 = ['#48bb78', '#ed8936', '#9f7aea', '#4a5568'];
+
+const lawyerDatasets = settlementKeys.map((key, i) => ({
+  label: key,
+  data: lawyerNamesShort.map(name => DATA.lawyer_settlement_detail[name]?.[key] || 0),
+  backgroundColor: settlementColors2[i],
+  borderRadius: 0,
+}));
+
+new Chart(document.getElementById('chart-lawyer-stacked'), {
+  type: 'bar',
+  data: { labels: lawyerNames, datasets: lawyerDatasets },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    indexAxis: 'y',
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.x.toLocaleString()}件` } }
+    },
+    scales: {
+      x: { stacked: true, grid: { color: '#1e2533' }, ticks: { color: '#a0aec0' } },
+      y: { stacked: true, grid: { color: '#1e2533' }, ticks: { color: '#a0aec0', font: {size: 10} } }
+    }
+  }
+});
+
+// Legend
+const lawyerLegend = document.getElementById('lawyer-legend');
+settlementKeys.forEach((key, i) => {
+  const el = document.createElement('div');
+  el.className = 'legend-item';
+  el.innerHTML = `<div class="legend-dot" style="background:${settlementColors2[i]}"></div>${key}`;
+  lawyerLegend.appendChild(el);
+});
+
+// ========================
+// CHART: Lawyer Doughnut (top 10)
+// ========================
+const top10lawyers = DATA.top_lawyer_offices.slice(0, 10);
+const lawyerColors10 = ['#667eea','#9f7aea','#48bb78','#ed8936','#fc8181','#38b2ac','#f6e05e','#f687b3','#7f9cf5','#68d391'];
+new Chart(document.getElementById('chart-lawyer-doughnut'), {
+  type: 'doughnut',
+  data: {
+    labels: top10lawyers.map(d => d.name.length > 12 ? d.name.substring(0, 12) + '…' : d.name),
+    datasets: [{
+      data: top10lawyers.map(d => d.count),
+      backgroundColor: lawyerColors10,
+      borderColor: '#1a1f2e',
+      borderWidth: 2,
+      hoverOffset: 6,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'bottom', labels: { color: '#a0aec0', font: {size: 10}, padding: 8 } },
+      tooltip: { callbacks: { label: (ctx) => ` ${ctx.parsed.toLocaleString()}件` } }
+    },
+    cutout: '50%',
+  }
+});
+
+// ========================
+// TABLE: Lawyers
+// ========================
+const lawyerTbody = document.getElementById('lawyer-tbody');
+DATA.top_lawyer_offices.forEach((office, idx) => {
+  const detail = DATA.lawyer_settlement_detail[office.name] || {};
+  const settled = detail['和解成立'] || 0;
+  const negotiating = detail['交渉中'] || 0;
+  const pending = detail['未着手'] || 0;
+  const done = detail['終了'] || 0;
+  const pct = (office.count / DATA.total_mandated * 100).toFixed(1);
+  const rank = idx + 1;
+  const badgeClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-other';
+
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><span class="rank-badge ${badgeClass}">${rank}</span></td>
+    <td>${office.name}</td>
+    <td><strong>${office.count.toLocaleString()}</strong></td>
+    <td><span class="status-badge badge-settled">${settled.toLocaleString()}</span></td>
+    <td><span class="status-badge badge-negotiating">${negotiating.toLocaleString()}</span></td>
+    <td><span class="status-badge badge-pending">${pending.toLocaleString()}</span></td>
+    <td><span class="status-badge badge-done">${done.toLocaleString()}</span></td>
+    <td>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar"><div class="progress-bar-fill" style="width:${pct}%;background:#667eea;"></div></div>
+        <span class="progress-label">${pct}%</span>
+      </div>
+    </td>
+  `;
+  lawyerTbody.appendChild(tr);
+});
+
+// ========================
+// CHART: Rights Holder Bar
+// ========================
+const top15rh = DATA.top_rights_holders.slice(0, 15);
+new Chart(document.getElementById('chart-rights-bar'), {
+  type: 'bar',
+  data: {
+    labels: top15rh.map(d => d.name.length > 12 ? d.name.substring(0, 12) + '…' : d.name),
+    datasets: [{
+      label: '案件数',
+      data: top15rh.map(d => d.count),
+      backgroundColor: top15rh.map((_, i) => `hsl(${240 + i * 15}, 60%, 60%)`),
+      borderRadius: 5,
+      borderSkipped: false,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    indexAxis: 'y',
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: (ctx) => ` ${ctx.parsed.x.toLocaleString()}件` } }
+    },
+    scales: {
+      x: { grid: { color: '#1e2533' }, ticks: { color: '#a0aec0', callback: v => v.toLocaleString() } },
+      y: { grid: { color: '#1e2533' }, ticks: { color: '#a0aec0', font: {size: 10} } }
+    }
+  }
+});
+
+// ========================
+// CHART: Rights Holder Stacked
+// ========================
+const kmpKeys = ['終了', '警告書', '登録済', '通知書発送', '分割入金中', '時効', '合意後入金中', '交渉中', '在庫', '未設定'];
+const kmpColors2 = ['#4a5568','#ed8936','#9f7aea','#667eea','#48bb78','#fc8181','#38b2ac','#f6e05e','#f687b3','#2d3748'];
+const top10rh = DATA.top_rights_holders.slice(0, 10);
+
+const rhDatasets = kmpKeys.map((key, i) => ({
+  label: key,
+  data: top10rh.map(rh => DATA.rh_progress_detail[rh.name]?.[key] || 0),
+  backgroundColor: kmpColors2[i],
+}));
+
+new Chart(document.getElementById('chart-rights-stacked'), {
+  type: 'bar',
+  data: {
+    labels: top10rh.map(d => d.name.length > 10 ? d.name.substring(0, 10) + '…' : d.name),
+    datasets: rhDatasets
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    indexAxis: 'y',
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.x.toLocaleString()}件` } }
+    },
+    scales: {
+      x: { stacked: true, grid: { color: '#1e2533' }, ticks: { color: '#a0aec0' } },
+      y: { stacked: true, grid: { color: '#1e2533' }, ticks: { color: '#a0aec0', font: {size: 10} } }
+    }
+  }
+});
+
+// Legend for rights stacked
+const rightsLegend = document.getElementById('rights-legend');
+kmpKeys.forEach((key, i) => {
+  const el = document.createElement('div');
+  el.className = 'legend-item';
+  el.innerHTML = `<div class="legend-dot" style="background:${kmpColors2[i]}"></div>${key}`;
+  rightsLegend.appendChild(el);
+});
+
+// ========================
+// TABLE: Rights Holders
+// ========================
+const rightsTbody = document.getElementById('rights-tbody');
+DATA.top_rights_holders.forEach((rh, idx) => {
+  const detail = DATA.rh_progress_detail[rh.name] || {};
+  const pct = (rh.count / DATA.total * 100).toFixed(1);
+  const rank = idx + 1;
+  const badgeClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-other';
+
+  // Find top progress
+  const topProgress = Object.entries(detail).sort((a, b) => b[1] - a[1]).slice(0, 3)
+    .map(([k, v]) => `${k}:${v.toLocaleString()}`).join(' / ');
+
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><span class="rank-badge ${badgeClass}">${rank}</span></td>
+    <td>${rh.name}</td>
+    <td><strong>${rh.count.toLocaleString()}</strong></td>
+    <td>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar"><div class="progress-bar-fill" style="width:${Math.min(parseFloat(pct)*5, 100)}%;background:#9f7aea;"></div></div>
+        <span class="progress-label">${pct}%</span>
+      </div>
+    </td>
+    <td style="font-size:11px;color:#718096;">${topProgress}</td>
+  `;
+  rightsTbody.appendChild(tr);
+});
+
+// ========================
+// TAB SWITCH
+// ========================
+function switchTab(name) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ========================
+// TABLE FILTER
+// ========================
+function filterTable(tableId, query) {
+  const tbody = document.querySelector('#' + tableId + ' tbody');
+  const rows = tbody.querySelectorAll('tr');
+  const q = query.toLowerCase();
+  rows.forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+</script>
+</body>
+</html>

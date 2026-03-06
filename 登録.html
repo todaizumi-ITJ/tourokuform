@@ -1,0 +1,1822 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>案件登録フォーム</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Helvetica Neue', Arial, 'Hiragino Sans', sans-serif; background: #f0f2f5; color: #1a1a1a; }
+
+header { background: #1F3864; color: white; padding: 16px 32px; display: flex; align-items: center; gap: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+header h1 { font-size: 1.1rem; font-weight: 600; }
+
+/* メインタブ（プロバイダ / 弁護士） */
+.main-tabs { display: flex; background: #172a50; border-bottom: 3px solid #1F3864; }
+.main-tab {
+  flex: 1; padding: 14px 20px; text-align: center; cursor: pointer;
+  font-size: 0.95rem; font-weight: 700; color: #8899bb;
+  transition: all 0.15s; border-bottom: 3px solid transparent; margin-bottom: -3px;
+  user-select: none;
+}
+.main-tab:hover { background: #1a2f5a; color: #ccd5e8; }
+.main-tab.active { color: white; border-bottom-color: #4fc3f7; background: #1F3864; }
+.main-tab .tab-icon { font-size: 1.2rem; display: block; margin-bottom: 3px; }
+.main-tab .tab-label { font-size: 0.78rem; font-weight: 400; display: block; margin-top: 2px; opacity: 0.8; }
+
+.section { display: none; }
+.section.active { display: block; }
+
+.container { max-width: 900px; margin: 0 auto; padding: 24px 20px; }
+
+.card { background: white; border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 24px; margin-bottom: 20px; }
+.card-title { font-size: 0.85rem; font-weight: 700; color: #1F3864; margin-bottom: 18px; border-left: 4px solid #1F3864; padding-left: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* 弁護士カードは色を変える */
+.lawyer-card { border-left-color: #7b1fa2; }
+.lawyer-card .card-title { color: #7b1fa2; border-left-color: #7b1fa2; }
+
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.field-grid.single { grid-template-columns: 1fr; }
+.field-grid.triple { grid-template-columns: 1fr 1fr 1fr; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label { font-size: 0.78rem; font-weight: 600; color: #555; }
+.field label .req { color: #c0392b; margin-left: 3px; }
+.field label .opt { color: #aaa; font-weight: 400; margin-left: 3px; }
+
+input, select, textarea {
+  border: 1px solid #d0d7de; border-radius: 6px; padding: 9px 11px;
+  font-size: 0.88rem; font-family: inherit; background: #fafafa;
+  transition: border-color 0.15s, background 0.15s; width: 100%;
+}
+input:focus, select:focus, textarea:focus { outline: none; border-color: #1F3864; background: white; }
+.required-empty { border-color: #c0392b !important; background: #fff5f5 !important; }
+
+/* ボタン */
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+.btn { padding: 10px 20px; border: none; border-radius: 6px; font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+.btn:hover { opacity: 0.85; }
+.btn-add    { background: #1F3864; color: white; }
+.btn-green  { background: #276221; color: white; }
+.btn-sec    { background: #f0f2f5; color: #333; border: 1px solid #d0d7de; }
+.btn-purple { background: #7b1fa2; color: white; }
+.btn-orange { background: #b7770d; color: white; }
+.btn-danger { background: #fff0f0; color: #9C0006; border: 1px solid #ffcccc; font-size: 0.8rem; padding: 5px 10px; border-radius: 4px; }
+.btn-sm     { font-size: 0.8rem; padding: 6px 12px; }
+
+/* バッジ */
+.badge { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-left: 5px; }
+.badge-provider { background: #e3f2fd; color: #1565c0; }
+.badge-lawyer   { background: #f3e5f5; color: #6a1b9a; }
+.badge-ipn      { background: #e8f5e9; color: #2e7d32; }
+.badge-noipn    { background: #fff3e0; color: #e65100; }
+
+/* リスト */
+.list-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.list-count  { font-size: 0.82rem; font-weight: 700; color: #1F3864; background: #e8f0fe; padding: 3px 10px; border-radius: 10px; }
+.list-count.lawyer-count { color: #7b1fa2; background: #f3e5f5; }
+.thn-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border: 1px solid #eee; border-radius: 7px; margin-bottom: 7px; background: #fafafa; }
+.thn-item:hover { background: #f5f8ff; }
+.thn-item-left .name { font-size: 0.9rem; font-weight: 700; color: #1a1a1a; }
+.thn-item-left .meta { font-size: 0.78rem; color: #777; margin-top: 3px; }
+.empty-list { color: #aaa; font-size: 0.85rem; padding: 20px; text-align: center; }
+
+/* JSON プレビュー */
+#jsonPreview, #lawyerJsonPreview { font-size: 0.75rem; background: #f8f9fb; padding: 14px; border-radius: 6px; max-height: 240px; overflow-y: auto; white-space: pre; font-family: monospace; border: 1px solid #e0e0e0; }
+
+/* Excel ドロップゾーン */
+.drop-zone {
+  border: 2px dashed #d0d7de; border-radius: 8px; padding: 28px;
+  text-align: center; cursor: pointer; transition: all 0.15s; background: #fafafa;
+  color: #888; font-size: 0.88rem;
+}
+.drop-zone:hover { border-color: #1F3864; background: #f0f4ff; color: #1F3864; }
+.drop-zone.dragover { border-color: #1F3864; background: #e8f0fe; }
+
+/* インポートカード */
+.import-card { display: none; }
+.import-card.open { display: block; }
+
+/* 手入力フォーム折りたたみ */
+.toggle-header { display:flex; align-items:center; justify-content:space-between; }
+.toggle-arrow { font-size:0.75rem; color:#999; transition:transform .2s; }
+.toggle-arrow.open { transform:rotate(90deg); }
+
+/* 修正レポート */
+.fix-report { border-radius:10px; padding:18px 22px; margin-top:12px; font-size:0.84rem; line-height:1.6; color:#333; }
+.fix-report.clean { background:linear-gradient(135deg,#e8f5e9,#f1f8e9); border:1px solid #a5d6a7; }
+.fix-report.warn  { background:linear-gradient(135deg,#fff8e1,#fff3e0); border:1px solid #ffcc80; }
+.fix-report-title { font-size:1.05rem; font-weight:800; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+.fix-report .stat-row { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:10px; }
+.fix-report .stat-card { flex:1; min-width:100px; border-radius:8px; padding:10px 14px; text-align:center; }
+.fix-report .stat-card .stat-num { font-size:1.5rem; font-weight:800; line-height:1.2; }
+.fix-report .stat-card .stat-label { font-size:0.72rem; color:#666; margin-top:2px; }
+.fix-report .stat-ok    { background:#e8f5e9; border:1px solid #c8e6c9; }
+.fix-report .stat-ok .stat-num { color:#2e7d32; }
+.fix-report .stat-fix   { background:#fff3e0; border:1px solid #ffe0b2; }
+.fix-report .stat-fix .stat-num { color:#e65100; }
+.fix-report .stat-warn  { background:#fce4ec; border:1px solid #f8bbd0; }
+.fix-report .stat-warn .stat-num { color:#c62828; }
+.fix-report .stat-total { background:#e3f2fd; border:1px solid #bbdefb; }
+.fix-report .stat-total .stat-num { color:#1565c0; }
+.fix-report .stat-skip  { background:#f3e5f5; border:1px solid #e1bee7; }
+.fix-report .stat-skip .stat-num { color:#6a1b9a; }
+.fix-report .detail-section { margin-top:10px; font-size:0.78rem; color:#555; }
+.fix-report .detail-item { display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px dashed #e0e0e0; }
+.fix-report .detail-item:last-child { border-bottom:none; }
+.fix-report .hint { margin-top:10px; padding:8px 12px; background:rgba(255,255,255,0.7); border-radius:6px; font-size:0.78rem; color:#e65100; }
+
+/* 重複警告 */
+.dup-warning { background: #fff8e1; border: 1px solid #ffe082; border-radius: 6px; padding: 10px 14px; font-size: 0.82rem; color: #795548; margin-bottom: 10px; display: none; }
+
+/* トースト */
+.toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px); background: #276221; color: white; padding: 10px 22px; border-radius: 20px; font-size: 0.88rem; font-weight: 600; opacity: 0; pointer-events: none; transition: all 0.25s; z-index: 999; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* エクスポートバナー（弁護士用） */
+.export-banner { background: #f3e5f5; border: 1px solid #ce93d8; border-radius: 8px; padding: 12px 16px; font-size: 0.82rem; color: #4a148c; margin-bottom: 10px; }
+
+/* テーブル */
+table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+th, td { padding: 6px 8px; border: 1px solid #e0e0e0; text-align: left; }
+th { background: #1F3864; color: white; }
+
+/* ガイドタブ */
+.guide-tab-row { display: flex; gap: 8px; margin-bottom: 18px; }
+.guide-tab { padding: 7px 18px; border-radius: 20px; border: 2px solid #d0d7de; background: white; color: #666; font-weight: 600; cursor: pointer; font-size: 0.83rem; transition: all 0.15s; }
+.guide-tab.active { background: #f39c12; border-color: #f39c12; color: white; }
+
+/* エラー修正パネル */
+.fix-panel { background: #fffbea; border: 1px solid #f0d060; border-radius: 8px; padding: 14px 16px; margin-top: 14px; font-size: 0.82rem; color: #7a6000; }
+.fix-preview { font-size: 0.75rem; background: #f8f9fb; padding: 10px; border-radius: 6px; max-height: 100px; overflow-y: auto; white-space: pre-wrap; font-family: monospace; border: 1px solid #e0e0e0; margin-top: 8px; color: #555; }
+</style>
+</head>
+<body>
+
+<header>
+  <span style="font-size:1.4rem;">📋</span>
+  <h1>案件登録フォーム</h1>
+</header>
+
+<!-- メインタブ -->
+<div class="main-tabs">
+  <div class="main-tab active" id="tab-provider" onclick="switchMain('provider')">
+    <span class="tab-icon">📡</span>
+    プロバイダ開示通知
+    <span class="tab-label">→ 通知判定DBへ</span>
+  </div>
+  <div class="main-tab" id="tab-lawyer" onclick="switchMain('lawyer')">
+    <span class="tab-icon">⚖️</span>
+    弁護士受任通知
+    <span class="tab-label">→ 弁護士案件DBへ（通知判定しない）</span>
+  </div>
+  <div class="main-tab" id="tab-self" onclick="switchMain('self')">
+    <span class="tab-icon">👤</span>
+    本人申告
+    <span class="tab-label">→ 後からIPNが判明した場合のみ通知判定</span>
+  </div>
+</div>
+
+<!-- ========== プロバイダセクション ========== -->
+<div class="section active" id="section-provider">
+<div class="container">
+
+  <!-- 使い方ガイド -->
+  <div class="card" style="border-left:5px solid #f39c12;">
+    <div class="card-title" style="color:#b7770d;border-left-color:#f39c12;">📘 使い方ガイド</div>
+    <div class="guide-tab-row">
+      <button class="guide-tab active" id="p_guide_tab_beginner" onclick="showGuide('p','beginner')">🙋 初心者向け</button>
+      <button class="guide-tab" id="p_guide_tab_tech" onclick="showGuide('p','tech')">🔧 技術者向け</button>
+    </div>
+    <div id="p_guide_beginner">
+      <p style="font-size:0.85rem;color:#444;line-height:1.8;margin-bottom:14px;">プロバイダ（ソフトバンク・au等）から届いた<strong>発信者情報開示通知</strong>を登録するフォームです。登録したデータはJSONファイルとして保存し、通知判定（app.py）に渡します。</p>
+      <div style="background:#fffbea;border:1px solid #f0d060;border-radius:8px;padding:14px 16px;margin-bottom:14px;">
+        <p style="font-size:0.84rem;font-weight:700;color:#7a6000;margin-bottom:10px;">📋 基本の流れ</p>
+        <div style="font-size:0.83rem;color:#444;line-height:2;">
+          <strong>STEP 1</strong>　フォームに氏名・住所を入力（必須）<br>
+          <strong>STEP 2</strong>　IPN・IP・タイムスタンプ・権利者があれば入力<br>
+          <strong>STEP 3</strong>　「リストに追加」→ まとめて「JSONダウンロード」<br>
+          <strong>STEP 4</strong>　ダウンロードしたJSONをapp.pyに渡して通知判定
+        </div>
+      </div>
+      <div style="background:#fff0f0;border:1px solid #f0b0b0;border-radius:8px;padding:12px 16px;">
+        <p style="font-size:0.83rem;font-weight:700;color:#9C0006;margin-bottom:6px;">⚠️ よくある間違い</p>
+        <ul style="font-size:0.82rem;color:#555;line-height:2;padding-left:18px;">
+          <li>氏名・住所は必ず入力してください</li>
+          <li>Excelで一括取り込みする場合は「Excelインポート」ボタンを使ってください</li>
+          <li>ページをリロードするとデータが消えます。先にエクスポートしてください</li>
+        </ul>
+      </div>
+    </div>
+    <div id="p_guide_tech" style="display:none;">
+      <p style="font-size:0.83rem;color:#444;line-height:1.8;margin-bottom:12px;"><code>source_type: "provider"</code> のJSONを生成します。出力ファイル名は <code>provider_YYYY-MM-DD.json</code>。app.pyの <code>POST /api/thn/batch</code> に渡してください。</p>
+      <div style="background:#f0f2f5;border-radius:6px;padding:12px 14px;font-size:0.8rem;font-family:monospace;line-height:1.8;color:#333;">
+        必須: contract_name, address<br>
+        推奨: ipn_id, ip_address, timestamp, rights_holder, provider<br>
+        任意: postal_code, phone, email, google_drive_url, memo
+      </div>
+    </div>
+  </div>
+
+  <!-- 手入力フォーム -->
+  <div class="card">
+    <div class="card-title toggle-header" onclick="toggleForm('p_form_body')" style="cursor:pointer;user-select:none;">📝 手入力 <span class="toggle-arrow" id="p_form_arrow">▶</span></div>
+    <div id="p_form_body" style="display:none;">
+    <div class="field-grid" style="margin-bottom:14px;">
+      <div class="field">
+        <label>氏名 <span class="req">*必須</span></label>
+        <input type="text" id="p_contract_name" placeholder="山田 太郎">
+      </div>
+      <div class="field">
+        <label>氏名カナ <span class="opt">任意</span></label>
+        <input type="text" id="p_contract_name_kana" placeholder="ヤマダ タロウ">
+      </div>
+    </div>
+    <div class="field-grid single" style="margin-bottom:14px;">
+      <div class="field">
+        <label>住所 <span class="req">*必須</span></label>
+        <input type="text" id="p_address" placeholder="東京都新宿区西新宿1-1-1">
+      </div>
+    </div>
+    <div class="field-grid" style="margin-bottom:14px;">
+      <div class="field">
+        <label>郵便番号 <span class="opt">任意</span></label>
+        <input type="text" id="p_postal_code" placeholder="160-0001">
+      </div>
+      <div class="field">
+        <label>電話番号 <span class="opt">任意</span></label>
+        <input type="text" id="p_phone" placeholder="090-0000-0000">
+      </div>
+    </div>
+    <div class="field-grid triple" style="margin-bottom:14px;">
+      <div class="field">
+        <label>IPアドレス <span class="req">*必須</span></label>
+        <input type="text" id="p_ip_address" placeholder="60.122.20.131">
+      </div>
+      <div class="field">
+        <label>ポート番号 <span class="req">*必須</span></label>
+        <input type="text" id="p_port" placeholder="49152">
+      </div>
+      <div class="field">
+        <label>タイムスタンプ <span class="req">*必須</span></label>
+        <input type="text" id="p_timestamp" placeholder="2024/02/22 19:09:49">
+      </div>
+    </div>
+    <div class="field-grid" style="margin-bottom:14px;">
+      <div class="field">
+        <label>IPN <span class="opt">任意</span></label>
+        <input type="text" id="p_ipn_id" placeholder="095FFF">
+      </div>
+      <div class="field">
+        <label>権利者 <span class="opt">任意</span></label>
+        <input type="text" id="p_rights_holder" placeholder="株式会社Plum">
+      </div>
+    </div>
+    <div class="field-grid" style="margin-bottom:14px;">
+      <div class="field">
+        <label>プロバイダコード <span class="req">*必須</span></label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" id="p_ppr_code" placeholder="P1" style="width:80px;flex-shrink:0;" oninput="onProviderCodeInput()">
+          <span id="p_provider_name_display" style="font-size:0.82rem;color:#1F3864;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></span>
+        </div>
+        <select id="p_provider_select" style="margin-top:6px;" onchange="onProviderSelectChange()">
+          <option value="">▼ 一覧から選択</option>
+        </select>
+        <input type="hidden" id="p_provider">
+      </div>
+      <div class="field">
+        <label>メール <span class="opt">任意</span></label>
+        <input type="text" id="p_email" placeholder="example@email.com">
+      </div>
+    </div>
+    <div class="field-grid" style="margin-bottom:14px;">
+      <div class="field">
+        <label>Google Drive URL <span class="opt">任意</span></label>
+        <input type="text" id="p_google_drive_url" placeholder="https://drive.google.com/...">
+      </div>
+      <div class="field">
+        <label>メモ <span class="opt">任意</span></label>
+        <input type="text" id="p_memo" placeholder="備考・特記事項">
+      </div>
+    </div>
+    <div id="p_dup_warning" class="dup-warning">⚠️ 同じ氏名・住所の登録がすでにあります。重複の可能性があります。</div>
+    <div class="btn-row">
+      <button class="btn btn-add" onclick="addProvider()">＋ リストに追加</button>
+      <button class="btn btn-sec" onclick="clearProviderForm()">クリア</button>
+    </div>
+    </div><!-- /p_form_body -->
+  </div>
+
+
+  <!-- エクスポート -->
+  <div class="card" id="p_preview_card">
+    <div class="card-title">📤 エクスポート / インポート</div>
+    <div class="btn-row" style="margin-bottom:14px;">
+      <button class="btn btn-green" onclick="exportProvider()">📤 JSONダウンロード</button>
+      <button class="btn btn-sec" onclick="copyProvider()">📋 JSONをコピー</button>
+      <button class="btn btn-sec btn-sm" onclick="showProviderImport()">📥 JSONインポート</button>
+      <button class="btn btn-sec btn-sm" onclick="showProviderExcel()">📊 Excelインポート</button>
+      <button class="btn btn-sm" style="background:#e65100;color:#fff;" onclick="autoFix('provider')">🔧 自動修正</button>
+    </div>
+    <div id="p_export_row" style="display:none;"></div>
+    <pre id="jsonPreview" style="display:none;"></pre>
+    <div class="fix-panel" id="p_fix_panel" style="display:none;">
+      <p style="font-weight:700;margin-bottom:6px;">🛠️ Claudeで修正が必要な場合</p>
+      <p style="font-size:0.82rem;margin-bottom:10px;color:#444;">修正プロンプト＋JSONをコピーしてClaudeに貼り付けてください。修正済みJSONが返ってきたら「JSONインポート」で取り込み直せます。</p>
+      <div class="btn-row">
+        <button class="btn btn-orange btn-sm" onclick="copyFixPrompt('provider')">📋 修正プロンプトをコピー</button>
+        <button class="btn btn-sec btn-sm" onclick="exportFixJSON('provider')">📤 要修正JSONを保存</button>
+      </div>
+      <div id="p_fix_summary" style="display:none;font-size:0.78rem;background:#f1f8e9;border:1px solid #aed581;border-radius:5px;padding:8px;margin-top:8px;white-space:pre-wrap;line-height:1.7;color:#333;"></div>
+      <div class="fix-preview" id="p_fix_preview" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- JSONインポート -->
+  <div class="card import-card" id="p_import_card">
+    <div class="card-title">📥 JSONインポート</div>
+    <textarea id="p_import_area" rows="6" placeholder='[{"contract_name":"山田太郎",...}]' style="font-family:monospace;font-size:0.8rem;margin-bottom:10px;"></textarea>
+    <div class="btn-row">
+      <button class="btn btn-green" onclick="importProviderJSON()">インポート</button>
+      <button class="btn btn-sec" onclick="closeCard('p_import_card')">キャンセル</button>
+    </div>
+  </div>
+
+  <!-- Excelインポート（プロバイダ） -->
+  <div class="card import-card" id="p_excel_card">
+    <div class="card-title">📊 Excelインポート（プロバイダ）</div>
+    <p style="font-size:0.83rem;color:#555;margin-bottom:14px;">プロバイダから届いたHTML/Excelをそのまま取り込めます。<code>source_type: "provider"</code> として登録されます。</p>
+    <div class="drop-zone" id="p_drop_zone"
+      ondragover="event.preventDefault();this.classList.add('dragover')"
+      ondragleave="this.classList.remove('dragover')"
+      ondrop="handleDrop(event,'provider')"
+      onclick="document.getElementById('p_file_input').click()">
+      📂 ここにExcel/HTMLをドラッグ、またはクリックして選択
+    </div>
+    <input type="file" id="p_file_input" accept=".xlsx,.xls,.html,.htm" style="display:none" onchange="handleFile(this.files[0],'provider')">
+    <div id="p_sheet_area" style="display:none;margin-top:14px;">
+      <div class="field-grid" style="margin-bottom:10px;">
+        <div class="field">
+          <label>シートを選択</label>
+          <select id="p_sheet_select" onchange="previewSheet('provider')"></select>
+        </div>
+      </div>
+      <div id="p_preview_table_wrap" style="overflow-x:auto;margin-bottom:10px;"></div>
+      <div id="p_row_count" style="font-size:0.8rem;color:#777;margin-bottom:10px;"></div>
+      <div class="btn-row">
+        <button class="btn btn-green" id="p_import_btn" onclick="importExcel('provider')" style="display:none;">📊 リストに取り込む</button>
+        <button class="btn btn-sec" onclick="closeCard('p_excel_card')">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- リスト -->
+  <div class="card">
+    <div class="list-header">
+      <div class="card-title" style="margin-bottom:0;">📋 登録リスト</div>
+      <span class="list-count" id="p_count">0件</span>
+    </div>
+    <div id="p_list"><div class="empty-list">まだ登録がありません</div></div>
+  </div>
+
+</div>
+</div>
+
+<!-- ========== 弁護士セクション ========== -->
+<div class="section" id="section-lawyer">
+<div class="container">
+
+  <!-- 使い方ガイド（弁護士） -->
+  <div class="card" style="border-left:5px solid #f39c12;">
+    <div class="card-title" style="color:#b7770d;border-left-color:#f39c12;">📘 使い方ガイド</div>
+    <div class="guide-tab-row">
+      <button class="guide-tab active" id="l_guide_tab_beginner" onclick="showGuide('l','beginner')">🙋 初心者向け</button>
+      <button class="guide-tab" id="l_guide_tab_tech" onclick="showGuide('l','tech')">🔧 技術者向け</button>
+    </div>
+    <div id="l_guide_beginner">
+      <p style="font-size:0.85rem;color:#444;line-height:1.8;margin-bottom:14px;">弁護士事務所から届いた<strong>受任通知</strong>を登録するフォームです。弁護士が既に動いている案件のため、<strong>通知判定は行いません</strong>。別途、弁護士案件DBへの記録用として保管します。</p>
+      <div style="background:#f3e5f5;border:1px solid #ce93d8;border-radius:8px;padding:12px 16px;">
+        <ul style="font-size:0.82rem;color:#555;line-height:2;padding-left:18px;">
+          <li>氏名・住所は必ず入力してください</li>
+          <li>弁護士コードは<strong>必須</strong>です。コードがない場合は先に発行してください</li>
+          <li>エクスポートしたJSONは弁護士案件DB用として別管理してください</li>
+        </ul>
+      </div>
+    </div>
+    <div id="l_guide_tech" style="display:none;">
+      <p style="font-size:0.83rem;color:#444;line-height:1.8;"><code>source_type: "lawyer"</code> のJSONを生成します。出力ファイル名は <code>lawyer_YYYY-MM-DD.json</code>。このJSONはapp.pyには投げず、弁護士案件DBに記録してください。</p>
+    </div>
+  </div>
+
+  <!-- 手入力フォーム（弁護士） -->
+  <div class="card">
+    <div class="card-title toggle-header" onclick="toggleForm('l_form_body')" style="cursor:pointer;user-select:none;border-left:4px solid #7b1fa2;color:#7b1fa2;">📝 手入力 <span class="toggle-arrow" id="l_form_arrow">▶</span></div>
+    <div id="l_form_body" style="display:none;">
+    <div class="field-grid" style="margin-bottom:14px;">
+      <div class="field">
+        <label>弁護士コード <span class="req">*必須</span></label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" id="l_agent_code" placeholder="L1" style="width:80px;flex-shrink:0;" oninput="onAgentCodeInput()">
+          <span id="l_agent_name_display" style="font-size:0.82rem;color:#4527a0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></span>
+        </div>
+        <input type="hidden" id="l_lawyer_id">
+        <div style="margin-top:6px;font-size:0.76rem;color:#7b1fa2;background:#f3e5f5;border:1px solid #ce93d8;border-radius:5px;padding:6px 9px;line-height:1.5;">
+          ⚠️ 弁護士コードがない場合は、弁護士コードの発行をしてから登録してください。
+        </div>
+      </div>
+      <div class="field">
+        <label>権利者 <span class="opt">任意</span></label>
+        <input type="text" id="l_rights_holder" placeholder="有限会社ベンハー">
+      </div>
+    </div>
+    <div class="field-grid" style="margin-bottom:14px;">
+      <div class="field">
+        <label>氏名 <span class="req">*必須</span></label>
+        <input type="text" id="l_contract_name" placeholder="山田 太郎">
+      </div>
+      <div class="field">
+        <label>氏名カナ <span class="opt">任意</span></label>
+        <input type="text" id="l_contract_name_kana" placeholder="ヤマダ タロウ">
+      </div>
+    </div>
+    <div class="field-grid" style="margin-bottom:14px;">
+      <div class="field">
+        <label>郵便番号 <span class="opt">任意</span></label>
+        <input type="text" id="l_postal_code" placeholder="618-0091">
+      </div>
+      <div class="field"><!-- spacer --></div>
+    </div>
+    <div class="field-grid single" style="margin-bottom:14px;">
+      <div class="field">
+        <label>住所 <span class="req">*必須</span></label>
+        <input type="text" id="l_address" placeholder="東京都新宿区西新宿1-1-1">
+      </div>
+    </div>
+    <div class="field-grid" style="margin-bottom:14px;">
+      <div class="field">
+        <label>IPN <span class="opt">任意</span></label>
+        <input type="text" id="l_ipn_id" placeholder="037SMV">
+      </div>
+      <div class="field">
+        <label>IPアドレス <span class="opt">任意</span></label>
+        <input type="text" id="l_ip_address" placeholder="126.61.61.152">
+      </div>
+    </div>
+    <div class="field-grid" style="margin-bottom:14px;">
+      <div class="field">
+        <label>タイムスタンプ <span class="opt">任意</span></label>
+        <input type="text" id="l_timestamp" placeholder="2023/08/10 20:05:28">
+      </div>
+      <div class="field">
+        <label>プロバイダ名 <span class="opt">任意</span></label>
+        <input type="text" id="l_provider" placeholder="ソフトバンク株式会社">
+      </div>
+    </div>
+    <div class="field-grid" style="margin-bottom:14px;">
+      <div class="field">
+        <label>メモ <span class="opt">任意</span></label>
+        <input type="text" id="l_memo" placeholder="備考・特記事項">
+      </div>
+      <div class="field">
+        <label>Google Drive URL <span class="opt">任意</span></label>
+        <input type="text" id="l_google_drive_url" placeholder="https://drive.google.com/...">
+      </div>
+    </div>
+    <div id="l_dup_warning" class="dup-warning">⚠️ 同じ氏名・住所の登録がすでにあります。重複の可能性があります。</div>
+    <div class="btn-row">
+      <button class="btn btn-purple" onclick="addLawyer()">＋ リストに追加</button>
+      <button class="btn btn-sec" onclick="clearLawyerForm()">クリア</button>
+    </div>
+    </div><!-- /l_form_body -->
+  </div>
+
+
+  <!-- エクスポート -->
+  <div class="card" id="l_preview_card">
+    <div class="card-title" style="color:#7b1fa2;border-left-color:#7b1fa2;">📤 エクスポート（弁護士案件）</div>
+    <div class="btn-row" style="margin-bottom:14px;">
+      <button class="btn btn-purple" onclick="exportLawyer()">📤 JSONダウンロード</button>
+      <button class="btn btn-sec" onclick="copyLawyer()">📋 JSONをコピー</button>
+      <button class="btn btn-sec btn-sm" onclick="showLawyerImport()">📥 JSONインポート</button>
+      <button class="btn btn-sec btn-sm" onclick="showLawyerExcel()">📊 Excelインポート</button>
+      <button class="btn btn-sm" style="background:#e65100;color:#fff;" onclick="autoFix('lawyer')">🔧 自動修正</button>
+    </div>
+    <div id="l_export_row" style="display:none;"></div>
+    <pre id="lawyerJsonPreview" style="display:none;"></pre>
+    <div class="fix-panel" id="l_fix_panel" style="display:none;">
+      <p style="font-weight:700;margin-bottom:6px;">🛠️ Claudeで修正が必要な場合</p>
+      <p style="font-size:0.82rem;margin-bottom:10px;color:#444;">修正プロンプト＋JSONをコピーしてClaudeに貼り付けてください。修正済みJSONが返ってきたら「JSONインポート」で取り込み直せます。</p>
+      <div class="btn-row">
+        <button class="btn btn-orange btn-sm" onclick="copyFixPrompt('lawyer')">📋 修正プロンプトをコピー</button>
+        <button class="btn btn-sec btn-sm" onclick="exportFixJSON('lawyer')">📤 要修正JSONを保存</button>
+      </div>
+      <div id="l_fix_summary" style="display:none;font-size:0.78rem;background:#f1f8e9;border:1px solid #aed581;border-radius:5px;padding:8px;margin-top:8px;white-space:pre-wrap;line-height:1.7;color:#333;"></div>
+      <div class="fix-preview" id="l_fix_preview" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- JSONインポート（弁護士） -->
+  <div class="card import-card" id="l_import_card">
+    <div class="card-title" style="color:#7b1fa2;border-left-color:#7b1fa2;">📥 JSONインポート（弁護士）</div>
+    <textarea id="l_import_area" rows="6" placeholder='[{"contract_name":"山田太郎","lawyer_id":"60208",...}]' style="font-family:monospace;font-size:0.8rem;margin-bottom:10px;"></textarea>
+    <div class="btn-row">
+      <button class="btn btn-purple" onclick="importLawyerJSON()">インポート</button>
+      <button class="btn btn-sec" onclick="closeCard('l_import_card')">キャンセル</button>
+    </div>
+  </div>
+
+  <!-- Excelインポート（弁護士） -->
+  <div class="card import-card" id="l_excel_card">
+    <div class="card-title" style="color:#7b1fa2;border-left-color:#7b1fa2;">📊 Excelインポート（弁護士案件）</div>
+    <p style="font-size:0.83rem;color:#555;margin-bottom:14px;">弁護士事務所から届いたExcel/CSVをそのまま取り込めます。<code>source_type: "lawyer"</code> として登録されます。</p>
+    <div class="drop-zone" id="l_drop_zone"
+      ondragover="event.preventDefault();this.classList.add('dragover')"
+      ondragleave="this.classList.remove('dragover')"
+      ondrop="handleDrop(event,'lawyer')"
+      onclick="document.getElementById('l_file_input').click()">
+      📂 ここにExcel/CSVをドラッグ、またはクリックして選択
+    </div>
+    <input type="file" id="l_file_input" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFile(this.files[0],'lawyer')">
+    <div id="l_sheet_area" style="display:none;margin-top:14px;">
+      <div class="field-grid" style="margin-bottom:10px;">
+        <div class="field">
+          <label>シートを選択</label>
+          <select id="l_sheet_select" onchange="previewSheet('lawyer')"></select>
+        </div>
+      </div>
+      <div id="l_preview_table_wrap" style="overflow-x:auto;margin-bottom:10px;"></div>
+      <div id="l_row_count" style="font-size:0.8rem;color:#777;margin-bottom:10px;"></div>
+      <div class="btn-row">
+        <button class="btn btn-purple" id="l_import_btn" onclick="importExcel('lawyer')" style="display:none;">📊 リストに取り込む</button>
+        <button class="btn btn-sec" onclick="closeCard('l_excel_card')">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- リスト -->
+  <div class="card">
+    <div class="list-header">
+      <div class="card-title" style="margin-bottom:0;color:#7b1fa2;border-left-color:#7b1fa2;">📋 登録リスト（弁護士案件）</div>
+      <span class="list-count lawyer-count" id="l_count">0件</span>
+    </div>
+    <div id="l_list"><div class="empty-list">まだ登録がありません</div></div>
+  </div>
+
+</div>
+</div>
+
+<!-- ========== 本人申告セクション ========== -->
+<div class="section" id="section-self">
+<div class="container">
+
+  <!-- 使い方ガイド（本人申告） -->
+  <div class="card" style="border-left:5px solid #f39c12;">
+    <div class="card-title" style="color:#b7770d;border-left-color:#f39c12;">📘 使い方ガイド</div>
+    <div class="guide-tab-row">
+      <button class="guide-tab active" id="s_guide_tab_beginner" onclick="showGuide('s','beginner')">🙋 初心者向け</button>
+      <button class="guide-tab" id="s_guide_tab_tech" onclick="showGuide('s','tech')">🔧 技術者向け</button>
+    </div>
+    <div id="s_guide_beginner">
+      <p style="font-size:0.85rem;color:#444;line-height:1.8;margin-bottom:14px;">本人（契約者）から直接申告があった案件を登録するフォームです。IPアドレス・IPN・タイムスタンプが判明している場合は入力してください。後からIPNが判明した場合のみ通知判定の対象になります。</p>
+      <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:14px 16px;margin-bottom:14px;">
+        <p style="font-size:0.84rem;font-weight:700;color:#2e7d32;margin-bottom:10px;">📋 基本の流れ</p>
+        <div style="font-size:0.83rem;color:#444;line-height:2;">
+          <strong>STEP 1</strong>　氏名・住所を入力（必須）<br>
+          <strong>STEP 2</strong>　IPN・IP・タイムスタンプ・権利者があれば入力<br>
+          <strong>STEP 3</strong>　「リストに追加」→「JSONダウンロード」<br>
+          <strong>STEP 4</strong>　IPNが判明していればapp.pyに渡して通知判定も可
+        </div>
+      </div>
+      <div style="background:#fff0f0;border:1px solid #f0b0b0;border-radius:8px;padding:12px 16px;">
+        <p style="font-size:0.83rem;font-weight:700;color:#9C0006;margin-bottom:6px;">⚠️ 注意</p>
+        <ul style="font-size:0.82rem;color:#555;line-height:2;padding-left:18px;">
+          <li>IPNが不明な場合は通知判定できません（安全側に倒されます）</li>
+          <li>氏名・住所は必ず入力してください</li>
+          <li>ページをリロードするとデータが消えます。先にエクスポートしてください</li>
+        </ul>
+      </div>
+    </div>
+    <div id="s_guide_tech" style="display:none;">
+      <p style="font-size:0.83rem;color:#444;line-height:1.8;margin-bottom:12px;"><code>source_type: "self"</code> のJSONを生成します。出力ファイル名は <code>self_YYYY-MM-DD.json</code>。IPNが判明している場合のみ app.py の通知判定対象になります。</p>
+      <div style="background:#f0f2f5;border-radius:6px;padding:12px 14px;font-size:0.8rem;font-family:monospace;line-height:1.8;color:#333;">
+        必須: contract_name, address<br>
+        推奨（あれば）: ipn_id, ip_address, timestamp, rights_holder<br>
+        任意: postal_code, phone, email, google_drive_url, memo
+      </div>
+    </div>
+  </div>
+
+  <!-- 手入力フォーム（本人申告） -->
+  <div class="card">
+    <div class="card-title toggle-header" onclick="toggleForm('s_form_body')" style="cursor:pointer;user-select:none;border-left:4px solid #00796b;color:#00796b;">📝 手入力 <span class="toggle-arrow" id="s_form_arrow">▶</span></div>
+    <div id="s_form_body" style="display:none;">
+    <div class="field-grid" style="margin-bottom:14px;">
+      <div class="field">
+        <label>氏名 <span class="req">*必須</span></label>
+        <input type="text" id="s_contract_name" placeholder="山田 太郎">
+      </div>
+      <div class="field">
+        <label>氏名カナ <span class="opt">任意</span></label>
+        <input type="text" id="s_contract_name_kana" placeholder="ヤマダ タロウ">
+      </div>
+    </div>
+    <div class="field-grid" style="margin-bottom:14px;">
+      <div class="field">
+        <label>郵便番号 <span class="opt">任意</span></label>
+        <input type="text" id="s_postal_code" placeholder="160-0001">
+      </div>
+      <div class="field"><!-- spacer --></div>
+    </div>
+    <div class="field-grid single" style="margin-bottom:14px;">
+      <div class="field">
+        <label>住所 <span class="req">*必須</span></label>
+        <input type="text" id="s_address" placeholder="東京都新宿区西新宿1-1-1">
+      </div>
+    </div>
+    <div class="field-grid" style="margin-bottom:14px;">
+      <div class="field">
+        <label>IPN <span class="opt">任意</span></label>
+        <input type="text" id="s_ipn_id" placeholder="095FFF">
+      </div>
+      <div class="field">
+        <label>IPアドレス <span class="opt">任意</span></label>
+        <input type="text" id="s_ip_address" placeholder="60.122.20.131">
+      </div>
+    </div>
+    <div class="field-grid" style="margin-bottom:14px;">
+      <div class="field">
+        <label>タイムスタンプ <span class="opt">任意</span></label>
+        <input type="text" id="s_timestamp" placeholder="2024/02/22 19:09:49">
+      </div>
+      <div class="field">
+        <label>権利者 <span class="opt">任意</span></label>
+        <input type="text" id="s_rights_holder" placeholder="株式会社Plum">
+      </div>
+    </div>
+    <div class="field-grid" style="margin-bottom:14px;">
+      <div class="field">
+        <label>電話番号 <span class="opt">任意</span></label>
+        <input type="text" id="s_phone" placeholder="090-0000-0000">
+      </div>
+      <div class="field">
+        <label>メール <span class="opt">任意</span></label>
+        <input type="text" id="s_email" placeholder="example@email.com">
+      </div>
+    </div>
+    <div class="field-grid" style="margin-bottom:14px;">
+      <div class="field">
+        <label>メモ <span class="opt">任意</span></label>
+        <input type="text" id="s_memo" placeholder="備考・特記事項">
+      </div>
+      <div class="field">
+        <label>Google Drive URL <span class="opt">任意</span></label>
+        <input type="text" id="s_google_drive_url" placeholder="https://drive.google.com/...">
+      </div>
+    </div>
+    <div id="s_dup_warning" class="dup-warning">⚠️ 同じ氏名・住所の登録がすでにあります。重複の可能性があります。</div>
+    <div class="btn-row">
+      <button class="btn" style="background:#00796b;color:white;" onclick="addSelf()">＋ リストに追加</button>
+      <button class="btn btn-sec" onclick="clearSelfForm()">クリア</button>
+    </div>
+    </div><!-- /s_form_body -->
+  </div>
+
+
+  <!-- エクスポート -->
+  <div class="card" id="s_preview_card">
+    <div class="card-title" style="color:#00796b;border-left-color:#00796b;">📤 エクスポート（本人申告）</div>
+    <div class="btn-row" style="margin-bottom:14px;">
+      <button class="btn" style="background:#00796b;color:white;" onclick="exportSelf()">📤 JSONダウンロード</button>
+      <button class="btn btn-sec" onclick="copySelf()">📋 JSONをコピー</button>
+      <button class="btn btn-sec btn-sm" onclick="showSelfImport()">📥 JSONインポート</button>
+      <button class="btn btn-sec btn-sm" onclick="showSelfExcel()">📊 Excelインポート</button>
+      <button class="btn btn-sm" style="background:#e65100;color:#fff;" onclick="autoFix('self')">🔧 自動修正</button>
+    </div>
+    <div id="s_export_row" style="display:none;"></div>
+    <pre id="selfJsonPreview" style="display:none;"></pre>
+    <div class="fix-panel" id="s_fix_panel" style="display:none;">
+      <p style="font-weight:700;margin-bottom:6px;">🛠️ Claudeで修正が必要な場合</p>
+      <p style="font-size:0.82rem;margin-bottom:10px;color:#444;">修正プロンプト＋JSONをコピーしてClaudeに貼り付けてください。修正済みJSONが返ってきたら「JSONインポート」で取り込み直せます。</p>
+      <div class="btn-row">
+        <button class="btn btn-orange btn-sm" onclick="copyFixPrompt('self')">📋 修正プロンプトをコピー</button>
+        <button class="btn btn-sec btn-sm" onclick="exportFixJSON('self')">📤 要修正JSONを保存</button>
+      </div>
+      <div id="s_fix_summary" style="display:none;font-size:0.78rem;background:#f1f8e9;border:1px solid #aed581;border-radius:5px;padding:8px;margin-top:8px;white-space:pre-wrap;line-height:1.7;color:#333;"></div>
+      <div class="fix-preview" id="s_fix_preview" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- JSONインポート（本人申告） -->
+  <div class="card import-card" id="s_import_card">
+    <div class="card-title" style="color:#00796b;border-left-color:#00796b;">📥 JSONインポート（本人申告）</div>
+    <textarea id="s_import_area" rows="6" placeholder='[{"contract_name":"山田太郎","ipn_id":"095FFF",...}]' style="font-family:monospace;font-size:0.8rem;margin-bottom:10px;"></textarea>
+    <div class="btn-row">
+      <button class="btn" style="background:#00796b;color:white;" onclick="importSelfJSON()">インポート</button>
+      <button class="btn btn-sec" onclick="closeCard('s_import_card')">キャンセル</button>
+    </div>
+  </div>
+
+  <!-- Excelインポート（本人申告） -->
+  <div class="card import-card" id="s_excel_card">
+    <div class="card-title" style="color:#00796b;border-left-color:#00796b;">📊 Excelインポート（本人申告）</div>
+    <p style="font-size:0.83rem;color:#555;margin-bottom:14px;">本人申告のExcel/CSVをそのまま取り込めます。<code>source_type: "self"</code> として登録されます。</p>
+    <div class="drop-zone" id="s_drop_zone"
+      ondragover="event.preventDefault();this.classList.add('dragover')"
+      ondragleave="this.classList.remove('dragover')"
+      ondrop="handleDrop(event,'self')"
+      onclick="document.getElementById('s_file_input').click()">
+      📂 ここにExcel/CSVをドラッグ、またはクリックして選択
+    </div>
+    <input type="file" id="s_file_input" accept=".xlsx,.xls,.csv,.html,.htm" style="display:none" onchange="handleFile(this.files[0],'self')">
+    <div id="s_sheet_area" style="display:none;margin-top:14px;">
+      <div class="field-grid" style="margin-bottom:10px;">
+        <div class="field">
+          <label>シートを選択</label>
+          <select id="s_sheet_select" onchange="previewSheet('self')"></select>
+        </div>
+      </div>
+      <div id="s_preview_table_wrap" style="overflow-x:auto;margin-bottom:10px;"></div>
+      <div id="s_row_count" style="font-size:0.8rem;color:#777;margin-bottom:10px;"></div>
+      <div class="btn-row">
+        <button class="btn" style="background:#00796b;color:white;display:none;" id="s_import_btn" onclick="importExcel('self')">📊 リストに取り込む</button>
+        <button class="btn btn-sec" onclick="closeCard('s_excel_card')">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- リスト -->
+  <div class="card">
+    <div class="list-header">
+      <div class="card-title" style="margin-bottom:0;color:#00796b;border-left-color:#00796b;">📋 登録リスト（本人申告）</div>
+      <span class="list-count" style="color:#00796b;background:#e8f5e9;" id="s_count">0件</span>
+    </div>
+    <div id="s_list"><div class="empty-list">まだ登録がありません</div></div>
+  </div>
+
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// プロバイダマスター（master_provider_group_20260306.json より生成）
+// ============================================================
+const PROVIDER_MASTER = [{"ppr_code": "P1", "name": "BAN-BANネットワークス株式会社"}, {"ppr_code": "P293", "name": "BBIX株式会社"}, {"ppr_code": "P2", "name": "BTV株式会社"}, {"ppr_code": "P295", "name": "CBBS株式会社"}, {"ppr_code": "P4", "name": "CCNet株式会社"}, {"ppr_code": "P388", "name": "CNETプラザ有限会社"}, {"ppr_code": "P6", "name": "CTBメディア株式会社"}, {"ppr_code": "P5", "name": "Coltテクノロジーサービス株式会社"}, {"ppr_code": "P299", "name": "Cマーケティング株式会社"}, {"ppr_code": "P370", "name": "D.U-NET株式会社"}, {"ppr_code": "P7", "name": "EditNet株式会社"}, {"ppr_code": "P8", "name": "GMOインターネット株式会社"}, {"ppr_code": "P9", "name": "JCOM株式会社"}, {"ppr_code": "P408", "name": "K-BOX株式会社"}, {"ppr_code": "P10", "name": "KBN株式会社"}, {"ppr_code": "P11", "name": "KDDI株式会社"}, {"ppr_code": "P12", "name": "Kビジョン株式会社"}, {"ppr_code": "P510", "name": "MIBソリューションズ株式会社"}, {"ppr_code": "P506", "name": "MXモバイリング株式会社"}, {"ppr_code": "P360", "name": "NECネクサソリューションズ株式会社"}, {"ppr_code": "P447", "name": "NHNテコラス株式会社"}, {"ppr_code": "P473", "name": "NJCネットコミュニケーションズ株式会社"}, {"ppr_code": "P481", "name": "NRIネットコム株式会社"}, {"ppr_code": "P13", "name": "NTTドコモビジネス株式会社"}, {"ppr_code": "P180", "name": "NTTビジネスソリューションズ株式会社"}, {"ppr_code": "P15", "name": "OTNet株式会社"}, {"ppr_code": "P430", "name": "RADIX・CG株式会社"}, {"ppr_code": "P496", "name": "RelationJapan株式会社"}, {"ppr_code": "P397", "name": "VegaProjectK.K."}, {"ppr_code": "P16", "name": "YOUテレビ株式会社"}, {"ppr_code": "P487", "name": "e-Janネットワークス株式会社"}, {"ppr_code": "P240", "name": "こしの都ネットワーク株式会社（旧：丹南ケーブルテレビ株式会社）"}, {"ppr_code": "P301", "name": "こまどりケーブル株式会社"}, {"ppr_code": "P32", "name": "さくらインターネット株式会社"}, {"ppr_code": "P43", "name": "ひまわりネットワーク株式会社"}, {"ppr_code": "P308", "name": "もっとサポート株式会社"}, {"ppr_code": "P54", "name": "わたらせテレビ株式会社"}, {"ppr_code": "P17", "name": "アイテック阪急阪神株式会社"}, {"ppr_code": "P409", "name": "アグリゲート株式会社"}, {"ppr_code": "P371", "name": "アズポケット株式会社"}, {"ppr_code": "P18", "name": "アルテリア・ネットワークス株式会社"}, {"ppr_code": "P449", "name": "アンダーデザイン株式会社"}, {"ppr_code": "P421", "name": "アーバンネクサス株式会社"}, {"ppr_code": "P20", "name": "イッツ・コミュニケーションズ株式会社"}, {"ppr_code": "P21", "name": "インターネットマルチフィード株式会社"}, {"ppr_code": "P489", "name": "イントデザイン合同会社"}, {"ppr_code": "P19", "name": "イーブロードコミュニケーションズ株式会社"}, {"ppr_code": "P22", "name": "エキサイト株式会社"}, {"ppr_code": "P470", "name": "エクナ株式会社"}, {"ppr_code": "P23", "name": "エヌ・ティ・ティ・スマートコネクト株式会社"}, {"ppr_code": "P24", "name": "エヌ・ティ・ティ・ブロードバンドプラットフォーム株式会社"}, {"ppr_code": "P25", "name": "エヌ・ティ・ティ・メディアサプライ株式会社"}, {"ppr_code": "P26", "name": "エフビットコミュニケーションズ株式会社"}, {"ppr_code": "P27", "name": "エルシーブイ株式会社"}, {"ppr_code": "P28", "name": "カゴヤ・ジャパン株式会社"}, {"ppr_code": "P425", "name": "キヤノンITソリューションズ株式会社"}, {"ppr_code": "P442", "name": "クロスバリュー株式会社"}, {"ppr_code": "P29", "name": "グリーンシティケーブルテレビ株式会社"}, {"ppr_code": "P30", "name": "ケーブルテレビ株式会社"}, {"ppr_code": "P31", "name": "コネクシオ株式会社"}, {"ppr_code": "P300", "name": "コネクト中部株式会社"}, {"ppr_code": "P468", "name": "コムロック株式会社"}, {"ppr_code": "P396", "name": "コープ東北サンネット事業連合"}, {"ppr_code": "P391", "name": "サンネットにちはら"}, {"ppr_code": "P33", "name": "シーシーエヌ株式会社"}, {"ppr_code": "P269", "name": "ジェットインターネット株式会社"}, {"ppr_code": "P302", "name": "ジャパンアクセス株式会社"}, {"ppr_code": "P34", "name": "スターキャット・ケーブルネットワーク株式会社"}, {"ppr_code": "P379", "name": "セコム山陰株式会社"}, {"ppr_code": "P303", "name": "ソニーネットワークコミュニケーションズコネクト株式会社"}, {"ppr_code": "P35", "name": "ソニーネットワークコミュニケーションズ株式会社"}, {"ppr_code": "P36", "name": "ソニービズネットワークス株式会社"}, {"ppr_code": "P376", "name": "ソピアフォンス株式会社"}, {"ppr_code": "P37", "name": "ソフトイーサ株式会社"}, {"ppr_code": "P38", "name": "ソフトバンク株式会社"}, {"ppr_code": "P441", "name": "ソリューションアライブ株式会社"}, {"ppr_code": "P304", "name": "テレビ小山放送株式会社"}, {"ppr_code": "P377", "name": "デジタルバンク株式会社"}, {"ppr_code": "P39", "name": "トナミシステムソリューションズ株式会社"}, {"ppr_code": "P457", "name": "トータルアシスト株式会社"}, {"ppr_code": "P358", "name": "ナカヨ電子サービス株式会社"}, {"ppr_code": "P40", "name": "ニフティ株式会社"}, {"ppr_code": "P359", "name": "ニューデジタルケーブル株式会社"}, {"ppr_code": "P366", "name": "ネットエイジ株式会社"}, {"ppr_code": "P41", "name": "バイドゥ株式会社"}, {"ppr_code": "P305", "name": "ヒューマンデザイン株式会社"}, {"ppr_code": "P42", "name": "ビッグローブ株式会社"}, {"ppr_code": "P471", "name": "フェイスイノベーションサービス株式会社"}, {"ppr_code": "P14", "name": "フェニックスコミュニケーションズ株式会社"}, {"ppr_code": "P45", "name": "フォン・ジャパン株式会社"}, {"ppr_code": "P46", "name": "フリービット株式会社"}, {"ppr_code": "P438", "name": "ブリッジモーショントゥモロー株式会社"}, {"ppr_code": "P48", "name": "ミクスネットワーク株式会社"}, {"ppr_code": "P49", "name": "ミテネインターネット株式会社"}, {"ppr_code": "P306", "name": "メタプロトコル株式会社"}, {"ppr_code": "P307", "name": "メディアサプライ・インターナショナル株式会社"}, {"ppr_code": "P368", "name": "ヤマトシステム開発株式会社"}, {"ppr_code": "P50", "name": "ユニアデックス株式会社"}, {"ppr_code": "P294", "name": "ユミルリンク株式会社"}, {"ppr_code": "P309", "name": "ライド株式会社"}, {"ppr_code": "P52", "name": "ラディックス株式会社"}, {"ppr_code": "P53", "name": "リコージャパン株式会社"}, {"ppr_code": "P453", "name": "リネクト株式会社"}, {"ppr_code": "P59", "name": "一般財団法人研究学園都市コミュニティケーブルサービス"}, {"ppr_code": "P58", "name": "一般財団法人阿蘇テレワークセンター"}, {"ppr_code": "P272", "name": "上婦負ケーブルテレビ株式会社"}, {"ppr_code": "P231", "name": "上越ケーブルビジョン株式会社"}, {"ppr_code": "P483", "name": "下関商業開発株式会社"}, {"ppr_code": "P243", "name": "中部テレコミュニケーション株式会社"}, {"ppr_code": "P341", "name": "丸紅テレコム株式会社"}, {"ppr_code": "P214", "name": "九州テレ・コミュニケーションズ株式会社"}, {"ppr_code": "P57", "name": "井原放送株式会社"}, {"ppr_code": "P236", "name": "仙台CATV株式会社"}, {"ppr_code": "P267", "name": "伊藤忠ケーブルシステム株式会社"}, {"ppr_code": "P56", "name": "伊賀上野ケーブルテレビ株式会社"}, {"ppr_code": "P407", "name": "佐久ケーブルテレビ株式会社"}, {"ppr_code": "P220", "name": "佐賀シティビジョン株式会社"}, {"ppr_code": "P221", "name": "佐野ケーブルテレビ株式会社"}, {"ppr_code": "P225", "name": "使えるねっと株式会社"}, {"ppr_code": "P215", "name": "光ネットワーク株式会社"}, {"ppr_code": "P251", "name": "入間ケーブルテレビ株式会社"}, {"ppr_code": "P345", "name": "出雲ケーブルビジョン株式会社"}, {"ppr_code": "P353", "name": "北広島町"}, {"ppr_code": "P402", "name": "北設広域事務組合"}, {"ppr_code": "P429", "name": "北関西情報通信株式会社"}, {"ppr_code": "P260", "name": "北電情報システムサービス株式会社"}, {"ppr_code": "P216", "name": "厚木伊勢原ケーブルネットワーク株式会社"}, {"ppr_code": "P344", "name": "古河ケーブルテレビ株式会社"}, {"ppr_code": "P218", "name": "合同会社DMM.com"}, {"ppr_code": "P184", "name": "合同会社IWKワークス"}, {"ppr_code": "P219", "name": "合同会社インセインワークス"}, {"ppr_code": "P277", "name": "四万十町"}, {"ppr_code": "P349", "name": "土浦ケーブルテレビ株式会社"}, {"ppr_code": "P462", "name": "堀場産業株式会社"}, {"ppr_code": "P237", "name": "多摩ケーブルネットワーク株式会社"}, {"ppr_code": "P238", "name": "大分ケーブルテレコム株式会社"}, {"ppr_code": "P239", "name": "大和ライフネクスト株式会社"}, {"ppr_code": "P347", "name": "大東建託パートナーズ株式会社"}, {"ppr_code": "P443", "name": "大槻電気通信株式会社"}, {"ppr_code": "P348", "name": "天草ケーブルネットワーク株式会社"}, {"ppr_code": "P61", "name": "奥出雲町情報通信協会"}, {"ppr_code": "P253", "name": "姫路ケーブルテレビ株式会社"}, {"ppr_code": "P445", "name": "学共同利用機関法人情報・システム研究機構国立情報学研究所"}, {"ppr_code": "P280", "name": "学校法人塚本学院"}, {"ppr_code": "P60", "name": "宇都宮ケーブルテレビ株式会社"}, {"ppr_code": "P210", "name": "宮崎ケーブルテレビ株式会社"}, {"ppr_code": "P255", "name": "富士川シーエーティーヴィ株式会社"}, {"ppr_code": "P256", "name": "富士通株式会社"}, {"ppr_code": "P227", "name": "射水ケーブルネットワーク株式会社"}, {"ppr_code": "P223", "name": "山口ケーブルビジョン株式会社"}, {"ppr_code": "P224", "name": "山梨CATV株式会社"}, {"ppr_code": "P222", "name": "山陰ケーブルビジョン株式会社"}, {"ppr_code": "P63", "name": "岡山ネットワーク株式会社"}, {"ppr_code": "P310", "name": "岡田電機株式会社"}, {"ppr_code": "P208", "name": "岩手ケーブルテレビジョン株式会社"}, {"ppr_code": "P403", "name": "幌延町"}, {"ppr_code": "P385", "name": "彩ネット株式会社"}, {"ppr_code": "P446", "name": "恵那市"}, {"ppr_code": "P465", "name": "情報システム部合同会社"}, {"ppr_code": "P398", "name": "扶桑電通株式会社"}, {"ppr_code": "P278", "name": "新川地域介護保険・ケーブルテレビ事業組合"}, {"ppr_code": "P350", "name": "日本ネットワークイネイブラー株式会社"}, {"ppr_code": "P378", "name": "日本・アルカディア・ネットワーク株式会社"}, {"ppr_code": "P356", "name": "日本海ケーブルネットワーク株式会社"}, {"ppr_code": "P507", "name": "日本通信ネットワーク株式会社"}, {"ppr_code": "P250", "name": "日本通信株式会社"}, {"ppr_code": "P351", "name": "日本電力株式会社"}, {"ppr_code": "P394", "name": "旭化成ホームズ株式会社"}, {"ppr_code": "P55", "name": "旭川ケーブルテレビ株式会社"}, {"ppr_code": "P479", "name": "晴れの国ネット株式会社"}, {"ppr_code": "P355", "name": "有限会社アットマーク"}, {"ppr_code": "P262", "name": "有限会社インターネット富良野"}, {"ppr_code": "P263", "name": "有限会社オープンサーキット"}, {"ppr_code": "P450", "name": "有限会社クリスティ"}, {"ppr_code": "P490", "name": "有限会社サニーネット"}, {"ppr_code": "P440", "name": "有限会社システムリース"}, {"ppr_code": "P492", "name": "有限会社テクノプライズ"}, {"ppr_code": "P499", "name": "有限会社フィールズグラフィック"}, {"ppr_code": "P474", "name": "有限会社メディアちゃんぷる沖縄"}, {"ppr_code": "P485", "name": "有限会社広島インターネット"}, {"ppr_code": "P444", "name": "有限会社日本情報通信東北"}, {"ppr_code": "P493", "name": "有限会社竜王メディアセンター"}, {"ppr_code": "P354", "name": "木曽広域連合情報センター"}, {"ppr_code": "P245", "name": "東京ケーブルネットワーク株式会社"}, {"ppr_code": "P437", "name": "東京ビジネスサービス株式会社"}, {"ppr_code": "P246", "name": "東京ベイネットワーク株式会社"}, {"ppr_code": "P247", "name": "東北インテリジェント通信株式会社"}, {"ppr_code": "P361", "name": "東日本電信電話株式会社"}, {"ppr_code": "P413", "name": "東洋通信工業株式会社"}, {"ppr_code": "P484", "name": "松本商工会議所"}, {"ppr_code": "P229", "name": "松阪ケーブルテレビ・ステーション株式会社"}, {"ppr_code": "P405", "name": "板橋区"}, {"ppr_code": "P70", "name": "株式会社21Company"}, {"ppr_code": "P287", "name": "株式会社3S"}, {"ppr_code": "P71", "name": "株式会社Ai.Connect"}, {"ppr_code": "P427", "name": "株式会社BLOWTH"}, {"ppr_code": "P72", "name": "株式会社CAC"}, {"ppr_code": "P312", "name": "株式会社CATV富士五湖"}, {"ppr_code": "P73", "name": "株式会社CL"}, {"ppr_code": "P477", "name": "株式会社CRCCメディア"}, {"ppr_code": "P311", "name": "株式会社C・S・R"}, {"ppr_code": "P74", "name": "株式会社GLBBジャパン"}, {"ppr_code": "P410", "name": "株式会社Goolight"}, {"ppr_code": "P313", "name": "株式会社Grandeur"}, {"ppr_code": "P314", "name": "株式会社GrowSupport"}, {"ppr_code": "P315", "name": "株式会社H2"}, {"ppr_code": "P75", "name": "株式会社Hi-Bit"}, {"ppr_code": "P281", "name": "株式会社IC-NET"}, {"ppr_code": "P369", "name": "株式会社IMS"}, {"ppr_code": "P316", "name": "株式会社Invincible"}, {"ppr_code": "P503", "name": "株式会社J.フロント建装"}, {"ppr_code": "P400", "name": "株式会社JCNT"}, {"ppr_code": "P249", "name": "株式会社JPIX"}, {"ppr_code": "P76", "name": "株式会社JWAY"}, {"ppr_code": "P77", "name": "株式会社KADOKAWA"}, {"ppr_code": "P383", "name": "株式会社KCNなんたん"}, {"ppr_code": "P78", "name": "株式会社KCN京都"}, {"ppr_code": "P79", "name": "株式会社KDDIウェブコミュニケーションズ"}, {"ppr_code": "P80", "name": "株式会社LogicLinks"}, {"ppr_code": "P292", "name": "株式会社MCAT"}, {"ppr_code": "P298", "name": "株式会社NAX"}, {"ppr_code": "P81", "name": "株式会社NEXT"}, {"ppr_code": "P83", "name": "株式会社NTTぷらら"}, {"ppr_code": "P82", "name": "株式会社NTTドコモ"}, {"ppr_code": "P317", "name": "株式会社NTTドコモスマートライフカンパニー"}, {"ppr_code": "P504", "name": "株式会社Og"}, {"ppr_code": "P318", "name": "株式会社PinT"}, {"ppr_code": "P319", "name": "株式会社QTmedia"}, {"ppr_code": "P84", "name": "株式会社QTnet"}, {"ppr_code": "P85", "name": "株式会社STNet"}, {"ppr_code": "P86", "name": "株式会社TAM"}, {"ppr_code": "P87", "name": "株式会社TOKAIケーブルネットワーク"}, {"ppr_code": "P88", "name": "株式会社TOKAIコミュニケーションズ"}, {"ppr_code": "P90", "name": "株式会社Twelve"}, {"ppr_code": "P91", "name": "株式会社U-MX"}, {"ppr_code": "P92", "name": "株式会社U-NEXT"}, {"ppr_code": "P497", "name": "株式会社U-NEXTLIVINGPARTNERS"}, {"ppr_code": "P93", "name": "株式会社USEN-NEXTHOLDINGS"}, {"ppr_code": "P432", "name": "株式会社USENICTSolutions"}, {"ppr_code": "P320", "name": "株式会社Wiz"}, {"ppr_code": "P94", "name": "株式会社ZTV"}, {"ppr_code": "P380", "name": "株式会社mgram"}, {"ppr_code": "P89", "name": "株式会社trunk"}, {"ppr_code": "P101", "name": "株式会社あさがおテレビ"}, {"ppr_code": "P108", "name": "株式会社いちはらケーブルテレビ"}, {"ppr_code": "P431", "name": "株式会社たけのうち電器"}, {"ppr_code": "P143", "name": "株式会社ちゅピＣＯＭ"}, {"ppr_code": "P144", "name": "株式会社つなぐネットコミュニケーションズ"}, {"ppr_code": "P435", "name": "株式会社どこよりも"}, {"ppr_code": "P44", "name": "株式会社ひまわりてれび"}, {"ppr_code": "P161", "name": "株式会社ぴ～ぷる"}, {"ppr_code": "P97", "name": "株式会社アイエフネット"}, {"ppr_code": "P98", "name": "株式会社アイキューブ・マーケティング"}, {"ppr_code": "P382", "name": "株式会社アイティクル"}, {"ppr_code": "P99", "name": "株式会社アイティービー"}, {"ppr_code": "P472", "name": "株式会社アイネット"}, {"ppr_code": "P107", "name": "株式会社アイ・キャン"}, {"ppr_code": "P95", "name": "株式会社アイ・シー・シー"}, {"ppr_code": "P96", "name": "株式会社アイ・ピー・エス"}, {"ppr_code": "P100", "name": "株式会社アキュテクス"}, {"ppr_code": "P387", "name": "株式会社アシストソリューションズ"}, {"ppr_code": "P452", "name": "株式会社アステック"}, {"ppr_code": "P102", "name": "株式会社アットアイ"}, {"ppr_code": "P103", "name": "株式会社アドバンスコープ"}, {"ppr_code": "P404", "name": "株式会社アピオン"}, {"ppr_code": "P104", "name": "株式会社アミックスコム"}, {"ppr_code": "P451", "name": "株式会社アンネット"}, {"ppr_code": "P109", "name": "株式会社インターネットイニシアティブ"}, {"ppr_code": "P110", "name": "株式会社インターネットレボリューション"}, {"ppr_code": "P375", "name": "株式会社インターネット尾張"}, {"ppr_code": "P111", "name": "株式会社インターリンク"}, {"ppr_code": "P480", "name": "株式会社インテック"}, {"ppr_code": "P415", "name": "株式会社インフォム"}, {"ppr_code": "P322", "name": "株式会社インフォメーションネットワーク郡上八幡"}, {"ppr_code": "P296", "name": "株式会社インフォメーション・ネットワーク・コミュニティ"}, {"ppr_code": "P113", "name": "株式会社インボイス"}, {"ppr_code": "P321", "name": "株式会社イーエムアイ"}, {"ppr_code": "P456", "name": "株式会社イーグルアイ"}, {"ppr_code": "P105", "name": "株式会社イージェーワークス"}, {"ppr_code": "P106", "name": "株式会社イーツ"}, {"ppr_code": "P505", "name": "株式会社イーテル"}, {"ppr_code": "P494", "name": "株式会社ウインテックコミュニケーションズ"}, {"ppr_code": "P414", "name": "株式会社ウェブコミュニケーションズ"}, {"ppr_code": "P286", "name": "株式会社ウェルソック"}, {"ppr_code": "P323", "name": "株式会社エクスゲート"}, {"ppr_code": "P393", "name": "株式会社エコーシティー・駒ヶ岳"}, {"ppr_code": "P501", "name": "株式会社エスーシー"}, {"ppr_code": "P114", "name": "株式会社エディオン"}, {"ppr_code": "P417", "name": "株式会社エヌジェイホールディングス"}, {"ppr_code": "P118", "name": "株式会社エヌディエス"}, {"ppr_code": "P115", "name": "株式会社エヌ・シィ・ティ"}, {"ppr_code": "P116", "name": "株式会社エヌ・ティ・ティエムイー"}, {"ppr_code": "P117", "name": "株式会社エヌ・ティ・ティピー・シーコミュニケーションズ"}, {"ppr_code": "P433", "name": "株式会社エネクル"}, {"ppr_code": "P119", "name": "株式会社エネコム"}, {"ppr_code": "P120", "name": "株式会社オプテージ"}, {"ppr_code": "P458", "name": "株式会社オーツー"}, {"ppr_code": "P406", "name": "株式会社ガイアックス"}, {"ppr_code": "P475", "name": "株式会社ガルフネット"}, {"ppr_code": "P270", "name": "株式会社キッズウェイ"}, {"ppr_code": "P121", "name": "株式会社キャッチネットワーク"}, {"ppr_code": "P289", "name": "株式会社ギガプライズ"}, {"ppr_code": "P419", "name": "株式会社クラスト"}, {"ppr_code": "P122", "name": "株式会社クロガネコミュニケーションズ"}, {"ppr_code": "P478", "name": "株式会社グローバルネットコア"}, {"ppr_code": "P276", "name": "株式会社ケイアンドケイコーポレーション"}, {"ppr_code": "P467", "name": "株式会社ケイティーエス"}, {"ppr_code": "P488", "name": "株式会社ケーブルテレビジョン島原"}, {"ppr_code": "P123", "name": "株式会社ケーブルテレビ可児"}, {"ppr_code": "P271", "name": "株式会社ケーブルテレビ品川"}, {"ppr_code": "P124", "name": "株式会社ケーブルテレビ富山"}, {"ppr_code": "P324", "name": "株式会社ケーブルネット下関"}, {"ppr_code": "P125", "name": "株式会社ケーブルネット鈴鹿"}, {"ppr_code": "P126", "name": "株式会社ケーブルメディアワイワイ"}, {"ppr_code": "P127", "name": "株式会社ケーブルワン"}, {"ppr_code": "P512", "name": "株式会社ケー・アイ・ビー"}, {"ppr_code": "P509", "name": "株式会社コミュニティテレビこもろ"}, {"ppr_code": "P128", "name": "株式会社コミュニティネットワークセンター"}, {"ppr_code": "P129", "name": "株式会社コミュニティメディア"}, {"ppr_code": "P381", "name": "株式会社コムネット"}, {"ppr_code": "P357", "name": "株式会社コムレイド"}, {"ppr_code": "P459", "name": "株式会社サイエンス・マネジメント・システムス"}, {"ppr_code": "P476", "name": "株式会社サイバーネット"}, {"ppr_code": "P290", "name": "株式会社サイバーリンクス"}, {"ppr_code": "P346", "name": "株式会社サルード"}, {"ppr_code": "P390", "name": "株式会社サンオーコミュニケーションズ"}, {"ppr_code": "P412", "name": "株式会社サンコー情報システム"}, {"ppr_code": "P325", "name": "株式会社サンライズ"}, {"ppr_code": "P326", "name": "株式会社サンライズシステムズ"}, {"ppr_code": "P363", "name": "株式会社システムサプライ"}, {"ppr_code": "P140", "name": "株式会社シティーケーブル周南"}, {"ppr_code": "P141", "name": "株式会社シナプス"}, {"ppr_code": "P132", "name": "株式会社シーファイブ"}, {"ppr_code": "P131", "name": "株式会社シー・ティー・ワイ"}, {"ppr_code": "P133", "name": "株式会社ジェイコムウエスト"}, {"ppr_code": "P134", "name": "株式会社ジェイコム九州"}, {"ppr_code": "P138", "name": "株式会社ジェイコム千葉"}, {"ppr_code": "P135", "name": "株式会社ジェイコム埼玉・東日本"}, {"ppr_code": "P136", "name": "株式会社ジェイコム札幌"}, {"ppr_code": "P139", "name": "株式会社ジェイコム東京"}, {"ppr_code": "P137", "name": "株式会社ジェイコム湘南・神奈川"}, {"ppr_code": "P423", "name": "株式会社ジェイコム町田・川崎"}, {"ppr_code": "P424", "name": "株式会社ジェイコム相模原・大和"}, {"ppr_code": "P395", "name": "株式会社ジェイシーエス"}, {"ppr_code": "P386", "name": "株式会社ジェイ・エス・ディー"}, {"ppr_code": "P288", "name": "株式会社スパイス"}, {"ppr_code": "P142", "name": "株式会社スピーディア"}, {"ppr_code": "P328", "name": "株式会社スピードリンク"}, {"ppr_code": "P327", "name": "株式会社スーパーリージョナル"}, {"ppr_code": "P329", "name": "株式会社ソフィア"}, {"ppr_code": "P145", "name": "株式会社ティーガイア"}, {"ppr_code": "P330", "name": "株式会社ティーダ"}, {"ppr_code": "P502", "name": "株式会社テクニカル"}, {"ppr_code": "P399", "name": "株式会社テルベル"}, {"ppr_code": "P148", "name": "株式会社テレビ小松"}, {"ppr_code": "P147", "name": "株式会社テレビ岸和田"}, {"ppr_code": "P149", "name": "株式会社テレビ松本ケーブルビジョン"}, {"ppr_code": "P150", "name": "株式会社テレビ津山"}, {"ppr_code": "P454", "name": "株式会社テレ・マーカー"}, {"ppr_code": "P151", "name": "株式会社テンフィートライト"}, {"ppr_code": "P146", "name": "株式会社ディスクシティエンタテインメント"}, {"ppr_code": "P152", "name": "株式会社トコちゃんねる静岡"}, {"ppr_code": "P365", "name": "株式会社トップ"}, {"ppr_code": "P279", "name": "株式会社トークネット"}, {"ppr_code": "P331", "name": "株式会社ドリームクラフト"}, {"ppr_code": "P47", "name": "株式会社ドリーム・トレイン・インターネット"}, {"ppr_code": "P153", "name": "株式会社ドルフィンインターナショナル"}, {"ppr_code": "P455", "name": "株式会社ナカヨ"}, {"ppr_code": "P491", "name": "株式会社ナリタ工業"}, {"ppr_code": "P154", "name": "株式会社ニイカワポータル"}, {"ppr_code": "P155", "name": "株式会社ニューメディア"}, {"ppr_code": "P448", "name": "株式会社ネクシア"}, {"ppr_code": "P332", "name": "株式会社ネクストライン"}, {"ppr_code": "P156", "name": "株式会社ネスク"}, {"ppr_code": "P291", "name": "株式会社ネットコムBB"}, {"ppr_code": "P439", "name": "株式会社ネットジャパン"}, {"ppr_code": "P158", "name": "株式会社ネットフォレスト"}, {"ppr_code": "P157", "name": "株式会社ネットフォー"}, {"ppr_code": "P418", "name": "株式会社ネディア"}, {"ppr_code": "P283", "name": "株式会社ハイネット"}, {"ppr_code": "P159", "name": "株式会社ハイホー"}, {"ppr_code": "P333", "name": "株式会社ハートネットワーク"}, {"ppr_code": "P334", "name": "株式会社バッファロー・IT・ソリューションズ"}, {"ppr_code": "P160", "name": "株式会社バリューコミュニケーションズ"}, {"ppr_code": "P335", "name": "株式会社ヒロサキライフサービス"}, {"ppr_code": "P469", "name": "株式会社ピーシーデポコーポレーション"}, {"ppr_code": "P162", "name": "株式会社ファイバーゲート"}, {"ppr_code": "P500", "name": "株式会社ファイバー・プラス"}, {"ppr_code": "P163", "name": "株式会社ファミリーネット・ジャパン"}, {"ppr_code": "P164", "name": "株式会社フォーバルテレコム"}, {"ppr_code": "P165", "name": "株式会社ブロードエンタープライズ"}, {"ppr_code": "P273", "name": "株式会社プライムネット"}, {"ppr_code": "P420", "name": "株式会社プロテラス"}, {"ppr_code": "P166", "name": "株式会社ベイ・コミュニケーションズ"}, {"ppr_code": "P167", "name": "株式会社ベッコアメ・インターネット"}, {"ppr_code": "P422", "name": "株式会社ホープムーン"}, {"ppr_code": "P168", "name": "株式会社ミライコミュニケーションネットワーク"}, {"ppr_code": "P169", "name": "株式会社メック"}, {"ppr_code": "P170", "name": "株式会社メディアテック"}, {"ppr_code": "P285", "name": "株式会社ヤマス"}, {"ppr_code": "P373", "name": "株式会社ユーエムイー"}, {"ppr_code": "P171", "name": "株式会社ラインコミュニケーションズ"}, {"ppr_code": "P336", "name": "株式会社ラインセレクト"}, {"ppr_code": "P172", "name": "株式会社ラストワンマイル"}, {"ppr_code": "P173", "name": "株式会社ラッキータウンテレビ"}, {"ppr_code": "P511", "name": "株式会社リバーシ"}, {"ppr_code": "P464", "name": "株式会社リードコム"}, {"ppr_code": "P428", "name": "株式会社レオパレス21"}, {"ppr_code": "P364", "name": "株式会社レキオス"}, {"ppr_code": "P337", "name": "株式会社レジデンシャルインターネット"}, {"ppr_code": "P175", "name": "株式会社ワイヤレスゲート"}, {"ppr_code": "P174", "name": "株式会社ワイヤ・アンド・ワイヤレス"}, {"ppr_code": "P185", "name": "株式会社三次ケーブルビジョン"}, {"ppr_code": "P188", "name": "株式会社上田ケーブルビジョン"}, {"ppr_code": "P189", "name": "株式会社上野原ブロードバンドコミュニケーションズ"}, {"ppr_code": "P374", "name": "株式会社両毛ビジネスサポート"}, {"ppr_code": "P200", "name": "株式会社中海テレビ放送"}, {"ppr_code": "P194", "name": "株式会社倉敷ケーブルテレビ"}, {"ppr_code": "P339", "name": "株式会社光ネット"}, {"ppr_code": "P181", "name": "株式会社光通信"}, {"ppr_code": "P436", "name": "株式会社北海道録画センター"}, {"ppr_code": "P179", "name": "株式会社吉備ケーブルテレビ"}, {"ppr_code": "P186", "name": "株式会社周防ケーブルネット"}, {"ppr_code": "P275", "name": "株式会社四国中央テレビ"}, {"ppr_code": "P401", "name": "株式会社城北通信サービス"}, {"ppr_code": "P195", "name": "株式会社多摩テレビ"}, {"ppr_code": "P197", "name": "株式会社大垣ケーブルテレビ"}, {"ppr_code": "P198", "name": "株式会社大塚商会"}, {"ppr_code": "P367", "name": "株式会社大学生協事業センター"}, {"ppr_code": "P206", "name": "株式会社嶺南ケーブルネットワーク"}, {"ppr_code": "P196", "name": "株式会社帯広シティーケーブル"}, {"ppr_code": "P190", "name": "株式会社常口アトム"}, {"ppr_code": "P182", "name": "株式会社広域高速ネット二九六"}, {"ppr_code": "P338", "name": "株式会社御前崎ケーブルテレビ"}, {"ppr_code": "P178", "name": "株式会社快活フロンティア"}, {"ppr_code": "P176", "name": "株式会社愛媛CATV"}, {"ppr_code": "P192", "name": "株式会社新川インフォメーションセンター"}, {"ppr_code": "P191", "name": "株式会社新潟通信サービス"}, {"ppr_code": "P508", "name": "株式会社日友インターナショナル"}, {"ppr_code": "P3", "name": "株式会社日本ネットワークサービス"}, {"ppr_code": "P201", "name": "株式会社朝日ネット"}, {"ppr_code": "P416", "name": "株式会社未来ネット"}, {"ppr_code": "P463", "name": "株式会社本田洋行"}, {"ppr_code": "P340", "name": "株式会社東名"}, {"ppr_code": "P434", "name": "株式会社東名（名古屋支店）"}, {"ppr_code": "P268", "name": "株式会社東急ホテルズ"}, {"ppr_code": "P466", "name": "株式会社松江情報センター"}, {"ppr_code": "P297", "name": "株式会社沖創工"}, {"ppr_code": "P362", "name": "株式会社淡路島テレビジョン"}, {"ppr_code": "P193", "name": "株式会社石川コンピュータ・センター"}, {"ppr_code": "P187", "name": "株式会社秋田ケーブルテレビ"}, {"ppr_code": "P498", "name": "株式会社穴吹コミュニティ"}, {"ppr_code": "P495", "name": "株式会社網屋"}, {"ppr_code": "P177", "name": "株式会社縁人"}, {"ppr_code": "P205", "name": "株式会社道新デジタルメディア"}, {"ppr_code": "P202", "name": "株式会社長崎ケーブルメディア"}, {"ppr_code": "P203", "name": "株式会社長野県協同電算"}, {"ppr_code": "P204", "name": "株式会社電算"}, {"ppr_code": "P460", "name": "株式会社電算システム"}, {"ppr_code": "P183", "name": "株式会社高知電子計算センター"}, {"ppr_code": "P67", "name": "楽天コミュニケーションズ株式会社"}, {"ppr_code": "P68", "name": "楽天モバイル株式会社"}, {"ppr_code": "P62", "name": "横浜ケーブルビジョン株式会社"}, {"ppr_code": "P209", "name": "気仙沼ケーブルネットワーク株式会社"}, {"ppr_code": "P64", "name": "沖縄ケーブルネットワーク株式会社"}, {"ppr_code": "P65", "name": "沖縄セルラー電話株式会社"}, {"ppr_code": "P66", "name": "河口湖有線テレビ放送有限会社"}, {"ppr_code": "P199", "name": "洲本市"}, {"ppr_code": "P254", "name": "浜松ケーブルテレビ株式会社"}, {"ppr_code": "P230", "name": "湘南ケーブルネットワーク株式会社"}, {"ppr_code": "P513", "name": "特定非営利活動法人きたうら花ねっと"}, {"ppr_code": "P389", "name": "特定非営利活動法人スイミー"}, {"ppr_code": "P342", "name": "狭山ケーブルテレビ株式会社"}, {"ppr_code": "P211", "name": "玉島テレビ放送株式会社"}, {"ppr_code": "P264", "name": "由利本荘市CATVセンター"}, {"ppr_code": "P261", "name": "矢掛放送株式会社"}, {"ppr_code": "P241", "name": "知多メディアスネットワーク株式会社"}, {"ppr_code": "P242", "name": "知多半島ケーブルネットワーク株式会社"}, {"ppr_code": "P235", "name": "石見ケーブルビジョン株式会社"}, {"ppr_code": "P486", "name": "石見銀山テレビ放送株式会社"}, {"ppr_code": "P461", "name": "社会福祉法人憲章会"}, {"ppr_code": "P130", "name": "神河町"}, {"ppr_code": "P257", "name": "福井ケーブルテレビ株式会社"}, {"ppr_code": "P69", "name": "笠岡放送株式会社"}, {"ppr_code": "P274", "name": "美方ケーブルネットワーク株式会社"}, {"ppr_code": "P343", "name": "群馬インターネット株式会社"}, {"ppr_code": "P514", "name": "興産アメニティ株式会社"}, {"ppr_code": "P426", "name": "茂木町"}, {"ppr_code": "P252", "name": "萩テレビ株式会社"}, {"ppr_code": "P392", "name": "蓼科ケーブルビジョン株式会社"}, {"ppr_code": "P266", "name": "蕨ケーブルビジョン株式会社"}, {"ppr_code": "P248", "name": "藤津ケーブルビジョン株式会社"}, {"ppr_code": "P482", "name": "行田ケーブルテレビ株式会社"}, {"ppr_code": "P232", "name": "西尾張シーエーティーヴィ株式会社"}, {"ppr_code": "P233", "name": "請求しない"}, {"ppr_code": "P228", "name": "諫早ケーブルメディア株式会社"}, {"ppr_code": "P259", "name": "豊島ケーブルネットワーク株式会社"}, {"ppr_code": "P258", "name": "豊橋ケーブルネットワーク株式会社"}, {"ppr_code": "P372", "name": "輪島市ケーブルテレビ"}, {"ppr_code": "P265", "name": "輪島市役所"}, {"ppr_code": "P212", "name": "近鉄ケーブルネットワーク株式会社"}, {"ppr_code": "P112", "name": "郡上市"}, {"ppr_code": "P213", "name": "金沢ケーブル株式会社"}, {"ppr_code": "P284", "name": "鉄道情報システム株式会社"}, {"ppr_code": "P282", "name": "銚子インターネット株式会社"}, {"ppr_code": "P411", "name": "長和町ケーブルテレビ施設"}, {"ppr_code": "P207", "name": "関西ブロードバンド株式会社"}, {"ppr_code": "P384", "name": "関越ネットワークシステム株式会社"}, {"ppr_code": "P51", "name": "阪神ケーブルエンジニアリング株式会社"}, {"ppr_code": "P234", "name": "青森ケーブルテレビ株式会社"}, {"ppr_code": "P352", "name": "飯能ケーブルテレビ株式会社"}, {"ppr_code": "P217", "name": "高岡ケーブルネットワーク株式会社"}, {"ppr_code": "P244", "name": "鳥取中央有線放送株式会社"}, {"ppr_code": "P226", "name": "鹿沼ケーブルテレビ株式会社"}];
+
+// ============================================================
+// 弁護士マスター（master_agent_20260306.json より生成）
+// ============================================================
+const AGENT_MASTER = [{"agent_code": "L1", "name": "笹浪　靖史", "office": "弁護士法人オリオン法律事務所"}, {"agent_code": "L2", "name": "森山　珍弘", "office": "大阪グラディアトル法律事務所"}, {"agent_code": "L3", "name": "國松　大悟", "office": "大宮通り法律事務所"}, {"agent_code": "L4", "name": "有森　文昭", "office": "XFA法律事務所"}, {"agent_code": "L5", "name": "山本　弘喜", "office": "弁護士法人山本・坪井綜合法律事務所"}, {"agent_code": "L6", "name": "木下　雄高", "office": "桶谷法律事務所"}, {"agent_code": "L7", "name": "永岡　孝裕", "office": "永岡法律事務所"}, {"agent_code": "L8", "name": "泉　亮介", "office": "彩結法律事務所"}, {"agent_code": "L9", "name": "清水　祐太郎", "office": "グラディアトル法律事務所"}, {"agent_code": "L10", "name": "小菅　哲宏", "office": "弁護士法人若井綜合法律事務所"}, {"agent_code": "L11", "name": "宗本　龍一", "office": "弁護士法人白濱法律事務所"}, {"agent_code": "L12", "name": "今田　信久", "office": "若狭法律事務所"}, {"agent_code": "L13", "name": "大前　智仁", "office": "弁護士法人しょうぶ法律事務所"}, {"agent_code": "L14", "name": "井口　貴広", "office": "ふくろうの杜法律事務所"}, {"agent_code": "L15", "name": "桃木野　聡", "office": "桃木野総合法律事務所"}, {"agent_code": "L16", "name": "杉本　元照", "office": "弁護士法人アディーレ法律事務所"}, {"agent_code": "L17", "name": "谷川　智", "office": "弁護士法人モノリス法律事務所"}, {"agent_code": "L18", "name": "茅根　豪", "office": "力新堂法律事務所"}, {"agent_code": "L19", "name": "川添　圭", "office": "アテンド総合法律事務所"}, {"agent_code": "L20", "name": "朝倉　隆", "office": "朝倉法律事務所"}, {"agent_code": "L21", "name": "安藤　恭平", "office": "･事務所"}, {"agent_code": "L22", "name": "小池　洋介", "office": "伊藤小池法律事務所"}, {"agent_code": "L23", "name": "岩本　崇央", "office": "きびのくに法律事務所"}, {"agent_code": "L24", "name": "勝野　照章", "office": "弁護士法人一新法律事務所"}, {"agent_code": "L25", "name": "芳賀　広健", "office": "リーガライト法律事務所"}, {"agent_code": "L26", "name": "小坂　誉", "office": "弁護士法人栃のふたば法律事務所"}, {"agent_code": "L27", "name": "福住　涼", "office": "弁護士法人菊池綜合法律事務所"}, {"agent_code": "L28", "name": "加藤　泰", "office": "弁護士法人山下江法律事務所"}, {"agent_code": "L29", "name": "髙橋　健一", "office": "弁護士法人法の里"}, {"agent_code": "L30", "name": "福田　正樹", "office": "弁護士法人アークレスト法律事務所"}, {"agent_code": "L31", "name": "大熊　裕司", "office": "虎ノ門法律特許事務所"}, {"agent_code": "L32", "name": "横山　直毅", "office": "横山直毅法律事務所"}, {"agent_code": "L33", "name": "横井　優太", "office": "弁護士法人愛知総合法律事務所"}, {"agent_code": "L34", "name": "田中　圭祐", "office": "弁護士法人LEON"}, {"agent_code": "L35", "name": "熊谷　光司", "office": "弁護士法人鹿児島中央法律事務所"}, {"agent_code": "L36", "name": "中村　和洋", "office": "弁護士法人中村和洋法律事務所"}, {"agent_code": "L37", "name": "伏見　宗弘", "office": "津田沼総合法律事務所"}, {"agent_code": "L38", "name": "笠木　貴裕", "office": "電羊法律事務所"}, {"agent_code": "L39", "name": "山口　宣恭", "office": "あすか法律事務所"}, {"agent_code": "L40", "name": "貞永　憲佑", "office": "貞永法律事務所"}, {"agent_code": "L41", "name": "小屋敷　雄二", "office": "小屋敷総合法律事務所"}, {"agent_code": "L42", "name": "鈴木　正亮", "office": "東京新生法律事務所"}, {"agent_code": "L43", "name": "梅木　隆行", "office": "アイビスクラクス法律事務所"}, {"agent_code": "L44", "name": "隅元　暢昭", "office": "さくら法律事務所"}, {"agent_code": "L45", "name": "渡邊　海太", "office": "わたなべ法律事務所"}, {"agent_code": "L46", "name": "守谷　貫志", "office": "堀井法律事務所"}, {"agent_code": "L47", "name": "中野　倫嘉", "office": "ひろしま城南法律事務所"}, {"agent_code": "L48", "name": "新宅　正人", "office": "新宅法律事務所"}, {"agent_code": "L49", "name": "南　宣孝", "office": "松並法律事務所"}, {"agent_code": "L50", "name": "原﨑　千賀子", "office": "弁護士法人わかさ若狭法律事務所"}, {"agent_code": "L51", "name": "塚原　正典", "office": "あきつゆ国際特許法律事務所"}, {"agent_code": "L52", "name": "阿部　晶子", "office": "あかり総合法律事務所"}, {"agent_code": "L53", "name": "大本　卓志", "office": "大本卓志法律事務所"}, {"agent_code": "L54", "name": "大塚　雄起", "office": "U＆Tvessel法律事務所"}, {"agent_code": "L55", "name": "曾波　重之", "office": "阪神総合法律事務所"}, {"agent_code": "L56", "name": "篠原　大地", "office": "岡野法律事務所"}, {"agent_code": "L57", "name": "片岡　長司", "office": "片岡法律事務所"}, {"agent_code": "L58", "name": "山本　樹", "office": "弁護士法人山陰リーガルクリニック"}, {"agent_code": "L59", "name": "羽田　長愛", "office": "増田パートナーズ法律事務所"}, {"agent_code": "L60", "name": "植田　恭介", "office": "アディーレ法律事務所"}, {"agent_code": "L61", "name": "村木　孝太郎", "office": "弁護士法人J＆Tパートナーズ"}, {"agent_code": "L62", "name": "佐藤　泰弘", "office": "佐藤泰弘法律事務所"}, {"agent_code": "L63", "name": "松本　侑樹", "office": "弁護士法人江原総合法律事務所"}, {"agent_code": "L64", "name": "木村　正", "office": "弁護士法人津川総合法律事務所"}, {"agent_code": "L65", "name": "富本　洋正", "office": "安佐合同法律事務所"}, {"agent_code": "L66", "name": "平間　浩一", "office": "平間総合法律事務所"}, {"agent_code": "L67", "name": "藤田　誓史", "office": "アディーレ法律事務所"}, {"agent_code": "L68", "name": "大野　太郎", "office": "大野法律事務所"}, {"agent_code": "L69", "name": "木野　博徳", "office": "熊本セントラル法律事務所"}, {"agent_code": "L70", "name": "山極　光也", "office": "弁護士法人琥珀法律事務所"}, {"agent_code": "L71", "name": "菅野　庄一", "office": "･事務所"}, {"agent_code": "L72", "name": "小島　勇祐", "office": "小島勇祐法律事務所"}, {"agent_code": "L73", "name": "長泉地　薫大", "office": "弁護士法人千端穂法律事務所"}, {"agent_code": "L74", "name": "舘山　史明", "office": "舘山法律事務所"}, {"agent_code": "L75", "name": "磯田　直也", "office": "春田法律事務所"}, {"agent_code": "L76", "name": "森　裕介", "office": "美濃法律事務所"}, {"agent_code": "L77", "name": "福島　晃", "office": "弁護士法人つちぐり法律事務所"}, {"agent_code": "L78", "name": "畑田　将大", "office": "弁護士法人ALAW&GOODLOOP"}, {"agent_code": "L79", "name": "堀口　康純", "office": "堀口・犬塚法律事務所"}, {"agent_code": "L80", "name": "吉野　徹", "office": "今泉法律事務所"}, {"agent_code": "L81", "name": "坪内　清久", "office": "Sfil法律事務所"}, {"agent_code": "L82", "name": "小林　輝征", "office": "弁護士法人中部法律事務所"}, {"agent_code": "L83", "name": "小宮　千歩", "office": "弁護士法人名古屋法律事務所"}, {"agent_code": "L84", "name": "伊藤　真哉", "office": "手塚・伊藤・平井法律事務所"}, {"agent_code": "L85", "name": "田邊　護", "office": "柳町法律事務所"}, {"agent_code": "L86", "name": "福地　広", "office": "弁護士法人あまた法律事務所"}, {"agent_code": "L87", "name": "佐藤　栄晃", "office": "山本法律事務所"}, {"agent_code": "L88", "name": "森友　隆成", "office": "弁護士法人板根富規法律事務所"}, {"agent_code": "L89", "name": "松山　光樹", "office": "弁護士法人愛知総合法律事務所"}, {"agent_code": "L90", "name": "増田　力", "office": "増田力法律事務所"}, {"agent_code": "L91", "name": "金谷　紀雄", "office": "なべくら総合法律事務所"}, {"agent_code": "L92", "name": "高橋　映次", "office": "弁護士法人コールグリーン法律事務所"}, {"agent_code": "L93", "name": "北窓　弘之", "office": "福井開成法律事務所"}, {"agent_code": "L94", "name": "加藤　幸英", "office": "弁護士法人隼綜合法律事務所"}, {"agent_code": "L95", "name": "丸山　浩平", "office": "梶@刈谷事務所"}, {"agent_code": "L96", "name": "大賀　一慶", "office": "弁護士法人ＯＮＥ"}, {"agent_code": "L97", "name": "田所　伸吾", "office": "アスノ法律事務所"}, {"agent_code": "L98", "name": "野垣　康之", "office": "野垣法律事務所"}, {"agent_code": "L99", "name": "松澤　功", "office": "駒澤綜合法律事務所"}, {"agent_code": "L100", "name": "山本　尚", "office": "弁護士法人山陰リーガルクリニック益田事務所"}, {"agent_code": "L101", "name": "中地　充", "office": "中地総合法律事務所"}, {"agent_code": "L102", "name": "石井　匠太郎", "office": "まえばし法律事務所"}, {"agent_code": "L103", "name": "渡邊　隆", "office": "三多摩法律事務所"}, {"agent_code": "L104", "name": "加藤　哲夫", "office": "加藤法律会計事務所"}, {"agent_code": "L105", "name": "片山　直弥", "office": "京橋共同法律事務所"}, {"agent_code": "L106", "name": "大谷　直", "office": "大谷法律事務所"}, {"agent_code": "L107", "name": "門脇　慧", "office": "長尾今井法律事務所"}, {"agent_code": "L108", "name": "岩田　裕介", "office": "渋谷宮益坂法律事務所"}, {"agent_code": "L109", "name": "春田　藤麿", "office": "弁護士法人春田法律事務所"}, {"agent_code": "L110", "name": "川上　博基", "office": "川上・吉江法律事務所"}, {"agent_code": "L111", "name": "下村　哲也", "office": "弁護士法人下村法律事務所"}, {"agent_code": "L112", "name": "北島　武典", "office": "弁護士法人福岡リバティ法律事務所"}, {"agent_code": "L113", "name": "三浦　学人", "office": "三浦学人法律事務所"}, {"agent_code": "L114", "name": "斉藤　秀樹", "office": "みなと綜合法律事務所"}, {"agent_code": "L115", "name": "草薙　一郎", "office": "草薙一郎法律事務所"}, {"agent_code": "L116", "name": "大村　昌史", "office": "大村法律事務所"}, {"agent_code": "L117", "name": "斉藤　雄祐", "office": "弁護士法人長瀬総合法律事務所"}, {"agent_code": "L118", "name": "野村　信之", "office": "弁護士法人AK法律事務所"}, {"agent_code": "L119", "name": "荒木　樹", "office": "荒木法律事務所"}, {"agent_code": "L120", "name": "山口　秀哉", "office": "すずかけ法律事務所"}, {"agent_code": "L121", "name": "南　俊輔", "office": "岡田法律事務所"}, {"agent_code": "L122", "name": "藤岡　孝輔", "office": "ふじおか法律事務所"}, {"agent_code": "L123", "name": "馬場　智宏", "office": "ばんば法律事務所"}, {"agent_code": "L124", "name": "船越　雄一", "office": "弁護士法人戸田総合法律事務所"}, {"agent_code": "L125", "name": "浜田　憲孝", "office": "浜田総合法律事務所"}, {"agent_code": "L126", "name": "廣田　亘", "office": "河内総合法律事務所"}, {"agent_code": "L127", "name": "藤平　真吾", "office": "村島・穂積法律事務所"}, {"agent_code": "L128", "name": "竹内　綾香", "office": "くすの樹水戸法律事務所"}, {"agent_code": "L129", "name": "江原　智", "office": "弁護士法人江原総合法律事務所"}, {"agent_code": "L130", "name": "長谷川　亮", "office": "弁護士法人斉藤道俊法律事務所"}, {"agent_code": "L131", "name": "大和田　貴史", "office": "北海道合同法律事務所"}, {"agent_code": "L132", "name": "中西　敏夫", "office": "弁護士法人森川・鈴木法律事務所"}, {"agent_code": "L133", "name": "山口　亮輔", "office": "総合刑事法律事務所"}, {"agent_code": "L134", "name": "山本　一志", "office": "ベリーベスト法律事務所"}, {"agent_code": "L135", "name": "原田　智", "office": "春田法律事務所"}, {"agent_code": "L136", "name": "飛鳥井　雅崇", "office": "弁護士法人銀座ファースト法律事務所"}, {"agent_code": "L137", "name": "木村　憲司", "office": "かごはら法律事務所"}, {"agent_code": "L138", "name": "鴨田　譲", "office": "埼玉総合法律事務所"}, {"agent_code": "L139", "name": "浜田　卓海", "office": "弁護士法人第一法律事務所"}, {"agent_code": "L140", "name": "松尾　重信", "office": "冨山・松尾法律事務所"}, {"agent_code": "L141", "name": "太田　恭平", "office": "せんげん台法律事務所"}, {"agent_code": "L142", "name": "松坂　祐輔", "office": "東京平河法律事務所"}, {"agent_code": "L143", "name": "小松　隼也", "office": "三村小松山縣法律事務所"}, {"agent_code": "L144", "name": "川上　大雅", "office": "札幌北商標法律事務所"}, {"agent_code": "L145", "name": "串田　光成", "office": "串田光成法律事務所"}, {"agent_code": "L146", "name": "川瀬　典宏", "office": "こすぎ法律事務所"}, {"agent_code": "L147", "name": "森本　耕太郎", "office": "沼津総合法律事務所"}, {"agent_code": "L148", "name": "𠮷田　翔太", "office": "今法律事務所"}, {"agent_code": "L149", "name": "大鳥　貴史", "office": "弁護士法人Authense法律事務所"}, {"agent_code": "L150", "name": "松元　敬一", "office": "ベリーベスト法律事務所"}, {"agent_code": "L151", "name": "越後　雅俊", "office": "越後法律事務所"}, {"agent_code": "L152", "name": "千葉　真貴子", "office": "谷口総合法律事務所"}, {"agent_code": "L153", "name": "加藤　健一郎", "office": "弁護士法人千瑞穂法律事務所"}, {"agent_code": "L154", "name": "横山　航平", "office": "横山航平法律事務所"}, {"agent_code": "L155", "name": "鈴木　智也", "office": "虎ノ門法律経済事務所"}, {"agent_code": "L156", "name": "久保田　聖", "office": "田中綜合法律事務所"}, {"agent_code": "L157", "name": "平田　省郎", "office": "弁護士法人大江橋法律事務所"}, {"agent_code": "L158", "name": "朝日　俊雅", "office": "梅田セントラル法律事務所"}, {"agent_code": "L159", "name": "小池　修司", "office": "畑法律事務所"}, {"agent_code": "L160", "name": "鈴木　秀二", "office": "SINTO法律事務所"}, {"agent_code": "L161", "name": "小澤　博之", "office": "青い森法律事務所"}, {"agent_code": "L162", "name": "小松　利之", "office": "弁護士法人永和法律事務所"}, {"agent_code": "L163", "name": "竹田　真", "office": "東京芝法律事務所"}, {"agent_code": "L164", "name": "永里　佐和子", "office": "ながさと総合法律事務所"}, {"agent_code": "L165", "name": "菅原　洸介", "office": "法律事務所atelier"}, {"agent_code": "L166", "name": "森山　秀徳", "office": "羽田野総合法律事務所"}, {"agent_code": "L167", "name": "浅田　隆幸", "office": "浅田法律事務所"}, {"agent_code": "L168", "name": "益川　教雄", "office": "益川総合法律事務所"}, {"agent_code": "L169", "name": "大久保　享", "office": "夷川通り法律事務所"}, {"agent_code": "L170", "name": "福島　翔也", "office": "弁護士法人高橋三兄弟法律事務所"}, {"agent_code": "L171", "name": "加藤　信", "office": "冨田・島岡法律事務所"}, {"agent_code": "L172", "name": "佐藤　元", "office": "横浜マリン法律事務所"}, {"agent_code": "L173", "name": "神田　文浩", "office": "銀座インペリアル法律事務所"}, {"agent_code": "L174", "name": "一瀬　太一", "office": "弁護士法人ジュリスト・土釜総合法律事務所"}, {"agent_code": "L175", "name": "菊井　正宏", "office": "登大路総合法律事務所"}, {"agent_code": "L176", "name": "中島　康雄", "office": "弁護士法人半田みなと法律事務所"}, {"agent_code": "L177", "name": "有馬　純也", "office": "福岡城南法律事務所"}, {"agent_code": "L178", "name": "川島　孝之", "office": "アロウズ法律事務所"}, {"agent_code": "L179", "name": "安島　志郎", "office": "司法書士むさし中央法務事務所"}, {"agent_code": "L180", "name": "門西　栄一", "office": "門西栄一法律事務所"}, {"agent_code": "L181", "name": "山田　瑞樹", "office": "弁護士法人愛知総合法律事務所"}, {"agent_code": "L182", "name": "中村　和雄", "office": "市民共同法律事務所"}, {"agent_code": "L183", "name": "沢田　貴人", "office": "沢田法律事務所"}, {"agent_code": "L184", "name": "粟田　英一", "office": "粟田法律事務所"}, {"agent_code": "L185", "name": "春山　然浩", "office": "富山中央法律事務所"}, {"agent_code": "L186", "name": "吉野　秀信", "office": "弁護士法人リーガルプロフェッション"}, {"agent_code": "L187", "name": "太田　恒久", "office": "太田・石井法律事務所"}, {"agent_code": "L188", "name": "佐藤　英幸", "office": "高谷総合法律事務所"}, {"agent_code": "L189", "name": "髙森　健", "office": "弁護士法人北空"}, {"agent_code": "L190", "name": "吉峯　裕毅", "office": "吉峯総合法律事務所"}, {"agent_code": "L191", "name": "呉　裕麻", "office": "弁護士法人岡山香川架け橋法律事務所"}, {"agent_code": "L192", "name": "海野　秀樹", "office": "市ヶ谷見附法律事務所"}, {"agent_code": "L193", "name": "山岸　克巳", "office": "弁護士法人フォーラム大阪法律事務所"}, {"agent_code": "L194", "name": "濱田　和成", "office": "矢吹法律事務所"}, {"agent_code": "L195", "name": "吉崎　眞人", "office": "ベリーベスト法律事務所"}, {"agent_code": "L196", "name": "関　亮子", "office": "弁護士法人こだま法律事務所"}, {"agent_code": "L197", "name": "岩垣　敬道", "office": "岩垣法律事務所"}, {"agent_code": "L198", "name": "山添　健之", "office": "東京東部法律事務所"}, {"agent_code": "L199", "name": "志賀　貴", "office": "LSC綜合法律事務所"}, {"agent_code": "L200", "name": "山田　大介", "office": "山田大介法律事務所"}, {"agent_code": "L201", "name": "佐藤　良和", "office": "佐藤和夫法律事務所"}, {"agent_code": "L202", "name": "鈴木 心", "office": "四谷御門法律事務所"}, {"agent_code": "L203", "name": "首藤　裕二", "office": "N総合法律事務所"}, {"agent_code": "L204", "name": "大村　真司", "office": "大村法律事務所"}, {"agent_code": "L205", "name": "藤村　元気", "office": "福岡城南法律事務所"}, {"agent_code": "L206", "name": "川岸　司佳", "office": "弁護士法人山本・坪井総合法律事務所"}, {"agent_code": "L207", "name": "瀧澤　幹太", "office": "弁護士法人アライズ溝の口法律事務所"}, {"agent_code": "L208", "name": "安田　奈津希", "office": "安田総合法律事務所"}, {"agent_code": "L209", "name": "中村　弘人", "office": "中村総合法律事務所"}, {"agent_code": "L210", "name": "廣瀬　主嘉", "office": "梅田中央法律事務所"}, {"agent_code": "L211", "name": "富樫　早苗", "office": "はまきた法律事務所"}, {"agent_code": "L212", "name": "齋藤　裕", "office": "さいとうゆたか法律事務所"}, {"agent_code": "L213", "name": "馬場　秀幸", "office": "馬場秀幸法律事務所"}, {"agent_code": "L214", "name": "山本　麻白", "office": "ホワイト法律事務所"}, {"agent_code": "L215", "name": "柴谷　亮", "office": "弁護士法人中田・島尾法律事務所"}, {"agent_code": "L216", "name": "神谷　慎一", "office": "弁護士法人神谷法律事務所"}, {"agent_code": "L217", "name": "阿多　博文", "office": "弁護士法人興和法律事務所"}, {"agent_code": "L218", "name": "濱﨑　誠二", "office": "明石総合法律事務所"}, {"agent_code": "L219", "name": "神田　知宏", "office": "内幸町国際総合法律事務所"}, {"agent_code": "L220", "name": "菊地　伸", "office": "外苑法律事務所"}, {"agent_code": "L221", "name": "北澤　彩子", "office": "ネクスパート法律事務所"}, {"agent_code": "L222", "name": "有田　和生", "office": "土佐堀通り法律事務所"}, {"agent_code": "L223", "name": "塚越　朱美", "office": "すばる法律事務所"}, {"agent_code": "L224", "name": "坂口　公一", "office": "銀河総合法律事務所"}, {"agent_code": "L225", "name": "中林　祐太", "office": "平野町法律事務所"}, {"agent_code": "L226", "name": "伊藤　建", "office": "弁護士法人Z"}, {"agent_code": "L227", "name": "水野　順一", "office": "なります法律事務所"}, {"agent_code": "L228", "name": "清瀬　伸悟", "office": "好川法律事務所"}, {"agent_code": "L229", "name": "倉品　愛美", "office": "北村・平賀法律事務所"}, {"agent_code": "L230", "name": "山岸　宏彰", "office": "田町法律事務所"}, {"agent_code": "L231", "name": "安田　耕平", "office": "稲葉セントラル法律事務所"}, {"agent_code": "L232", "name": "木戸　章太", "office": "ベリーベスト法律事務所"}, {"agent_code": "L233", "name": "石川　幸平", "office": "ミッレ・フォーリエ法律事務所"}, {"agent_code": "L234", "name": "東　忠宏", "office": "弁護士法人東法律事務所"}, {"agent_code": "L235", "name": "片岸　寿文", "office": "片岸法律事務所"}, {"agent_code": "L236", "name": "鈴木　誠人", "office": "豊橋法律事務所"}, {"agent_code": "L237", "name": "刈谷　龍太", "office": "弁護士法人C-LiA"}, {"agent_code": "L238", "name": "白鳥　佑記", "office": "AYU総合法律事務所"}, {"agent_code": "L239", "name": "川間　亮佑", "office": "川間総合法律事務所"}, {"agent_code": "L240", "name": "岩崎　修", "office": "岩崎法律事務所"}, {"agent_code": "L241", "name": "上　将倫", "office": "弁護士法人松尾・中村・上法律事務所"}, {"agent_code": "L242", "name": "渡辺　泰央", "office": "四谷コモンズ法律事務所"}, {"agent_code": "L243", "name": "上田　貴", "office": "神戸湊川法律事務所"}, {"agent_code": "L244", "name": "松本　登志也", "office": "弁護士法人大樹法律事務所"}, {"agent_code": "L245", "name": "中道　徹", "office": "AE海老名・綾瀬法律事務所"}, {"agent_code": "L246", "name": "蓑　健太郎", "office": "となみ野法律事務所"}, {"agent_code": "L247", "name": "髙木　卓也", "office": "弁護士法人坂田法律事務所"}, {"agent_code": "L248", "name": "塩見　拓人", "office": "高麗橋中央法律事務所"}, {"agent_code": "L249", "name": "増村　圭一", "office": "九段坂総合法律事務所"}, {"agent_code": "L250", "name": "坂本　一成", "office": "四ツ谷坂本綜合法律事務所"}, {"agent_code": "L251", "name": "沢井　功雄", "office": "つるみ法律事務所"}, {"agent_code": "L252", "name": "横瀬　大輝", "office": "堂島法律事務所"}, {"agent_code": "L253", "name": "後藤　延悦", "office": "後藤　延悦"}, {"agent_code": "L254", "name": "岩坪 哲", "office": "岩坪法律事務所"}, {"agent_code": "L255", "name": "田中　利武", "office": "弁護士法人大分あおば法律事務所"}, {"agent_code": "L256", "name": "首藤　裕好", "office": "首藤法律事務所"}, {"agent_code": "L257", "name": "志摩　恭臣", "office": "朝田啓祐法律事務所"}, {"agent_code": "L258", "name": "渡邊　真也", "office": "渡邊真也法律事務所"}, {"agent_code": "L259", "name": "奥田　和之", "office": "名古屋けやき法律事務所"}, {"agent_code": "L260", "name": "暁　琢也", "office": "黎明国際法律事務所"}, {"agent_code": "L261", "name": "田代　洋介", "office": "オリンピア法律事務所"}, {"agent_code": "L262", "name": "砂山　雅人", "office": "砂山法律事務所"}, {"agent_code": "L263", "name": "笠原　智", "office": "船橋神宮下法律事務所"}, {"agent_code": "L264", "name": "長場　誠", "office": "長場法律事務所"}, {"agent_code": "L265", "name": "井上　康知", "office": "長濱・水野・井上法律事務所"}, {"agent_code": "L266", "name": "野上　晶平", "office": "弁護士法人TLEO虎ノ門法律経済事務所"}, {"agent_code": "L267", "name": "園　真規", "office": "隈・園法律事務所"}, {"agent_code": "L268", "name": "村田　典子", "office": "弁護士法人青空と大地"}, {"agent_code": "L269", "name": "三宅　悠太", "office": "弁護士法人いつき法律事務所"}, {"agent_code": "L270", "name": "長谷川　裕", "office": "LM総合法律事務所"}, {"agent_code": "L271", "name": "大村　耕作", "office": "平川法律事務所"}, {"agent_code": "L272", "name": "常谷　麻子", "office": "土佐堀通り法律事務所"}, {"agent_code": "L273", "name": "久行　康夫", "office": "久行法律事務所"}, {"agent_code": "L274", "name": "中村　謙介", "office": "ひびき法律事務所"}, {"agent_code": "L275", "name": "西川　治", "office": "神奈川総合法律事務所"}, {"agent_code": "L276", "name": "田邊　俊", "office": "田邊法律事務所"}, {"agent_code": "L277", "name": "竹村　淳", "office": "オレンジライン法律事務所"}, {"agent_code": "L278", "name": "山口　昭則", "office": "山口法律事務所"}, {"agent_code": "L279", "name": "中川　慶一", "office": "はりま法律事務所"}, {"agent_code": "L280", "name": "岩崎　隼人", "office": "岩崎総合法律事務所"}, {"agent_code": "L281", "name": "大野　遼太", "office": "岡崎法律事務所"}, {"agent_code": "L282", "name": "荒木　貢", "office": "あぶくま法律事務所"}, {"agent_code": "L283", "name": "最所　義一", "office": "弁護士法人港国際法律事務所"}, {"agent_code": "L284", "name": "對﨑　俊一", "office": "對俊一法律事務所"}, {"agent_code": "L285", "name": "伊藤　敦史", "office": "弁護士法人山下江法律事務所"}, {"agent_code": "L286", "name": "龍口　基樹", "office": "しなの木法律事務所"}, {"agent_code": "L287", "name": "田上　尚志", "office": "田上法律事務所"}, {"agent_code": "L288", "name": "岸本　悟", "office": "弁護士法人藤田・川崎法律事務所"}, {"agent_code": "L289", "name": "土井　智雄", "office": "千代田総合法律事務所"}, {"agent_code": "L290", "name": "毛受　久", "office": "あさひ法律事務所"}, {"agent_code": "L291", "name": "甲本　晃啓", "office": "甲本・佐藤法律会計事務所"}, {"agent_code": "L292", "name": "中澤　亮一", "office": "弁護士法人一新総合法律事務所"}, {"agent_code": "L293", "name": "浅井　裕貴", "office": "新清水法律事務所"}, {"agent_code": "L294", "name": "田畑 淳", "office": "溝の口法律事務所"}, {"agent_code": "L295", "name": "近藤　士起", "office": "静岡四季法律事務所"}, {"agent_code": "L296", "name": "藤原　朋奈", "office": "藤原朋奈法律事務所"}, {"agent_code": "L297", "name": "中澤　和也", "office": "あまね宇都宮法律事務所"}, {"agent_code": "L298", "name": "税所　知久", "office": "弁護士法人ALG&Associates"}, {"agent_code": "L299", "name": "上米良　大輔", "office": "弁護士法人山本特許法律事務所"}, {"agent_code": "L300", "name": "佐々川　直幸", "office": "佐々川法律事務所"}, {"agent_code": "L301", "name": "清水　陽平", "office": "法律事務所アルシエン"}, {"agent_code": "L302", "name": "坂田　優", "office": "弁護士法人天方川崎法律事務所美浜ブランチ"}, {"agent_code": "L303", "name": "大崎　幸宏", "office": "冬夏法律事務所"}, {"agent_code": "L304", "name": "庄司　俊哉", "office": "庄司法律事務所"}, {"agent_code": "L305", "name": "弘藤　智基", "office": "弁護士法人ONE"}, {"agent_code": "L306", "name": "橘　里香", "office": "弁護士法人一新総合法律事務所"}, {"agent_code": "L307", "name": "荒川　仁雄", "office": "荒川・荒木法律事務所"}, {"agent_code": "L308", "name": "西　信子", "office": "西　信子法律事務所"}, {"agent_code": "L309", "name": "小方　良樹", "office": "川崎シティ法律事務所"}, {"agent_code": "L310", "name": "高木　光春", "office": "弁護士法人高木光春法律事務所"}, {"agent_code": "L311", "name": "木村　健一", "office": "大分さわだ法律事務所"}, {"agent_code": "L312", "name": "藤原　朋弘", "office": "中野すずらん法律事務所"}, {"agent_code": "L313", "name": "山口　謙治", "office": "大館山口法律事務所"}, {"agent_code": "L314", "name": "中村　元起", "office": "加地法律事務所"}, {"agent_code": "L315", "name": "野田谷　大地", "office": "つかさ綜合法律事務所"}, {"agent_code": "L316", "name": "前原　一輝", "office": "高樹町法律事務所"}, {"agent_code": "L317", "name": "西口　伸良", "office": "新麹町法律事務所"}, {"agent_code": "L318", "name": "清水　誠治", "office": "弁護士法人清水誠治法律登記事務所"}, {"agent_code": "L319", "name": "牟田　圭佑", "office": "弁護士法人ニューポート法律事務所"}, {"agent_code": "L320", "name": "桂　典之", "office": "かつら綜合法律事務所"}, {"agent_code": "L321", "name": "奥村　克彦", "office": "奥村・岡田総合法律事務所"}, {"agent_code": "L322", "name": "寺澤　佐千夫", "office": "寺澤佐千夫法律事務所"}, {"agent_code": "L323", "name": "徳田　剛之", "office": "あまね宇都宮法律事務所"}, {"agent_code": "L324", "name": "鈴木　岳弘", "office": "弁護士法人丸浜法律事務所"}, {"agent_code": "L325", "name": "櫻町　直樹", "office": "内幸町国際総合法律事務所"}, {"agent_code": "L326", "name": "藤川　武揚", "office": "藤川総合法律事務所"}, {"agent_code": "L327", "name": "金森　将也", "office": "金森総合法律事務所"}, {"agent_code": "L328", "name": "早河　弘毅", "office": "ベリーベスト法律事務所"}, {"agent_code": "L329", "name": "安藤　明彦", "office": "安藤法律事務所"}, {"agent_code": "L330", "name": "飯野　鉄平", "office": "ベリーベスト法律事務所"}, {"agent_code": "L331", "name": "佐藤　翔平", "office": "神居法律事務所"}, {"agent_code": "L332", "name": "飯野　友章", "office": "南小岩法律事務所"}, {"agent_code": "L333", "name": "大箸　信之", "office": "大箸法律事務所"}, {"agent_code": "L334", "name": "石田　美果", "office": "池田総合法律事務所"}, {"agent_code": "L335", "name": "生野　裕一", "office": "弁護士法人アゴラ"}, {"agent_code": "L336", "name": "丹治　典彦", "office": "弁護士法人兵庫法律センター法律事務所"}, {"agent_code": "L337", "name": "権田　修一", "office": "東京富士法律事務所"}, {"agent_code": "L338", "name": "竹中　朗", "office": "シティクロス総合法律事務所"}, {"agent_code": "L339", "name": "小河　達哉", "office": "岡本法律事務所"}, {"agent_code": "L340", "name": "村山　夏希", "office": "むらやま法律事務所"}, {"agent_code": "L341", "name": "山田　晃一", "office": "山田法律事務所"}, {"agent_code": "L342", "name": "堀尾　純矢", "office": "尽心法律特許事務所"}, {"agent_code": "L343", "name": "木村　太志", "office": "弁護士法人みなみ総合法律事務所"}, {"agent_code": "L344", "name": "河西　辰哉", "office": "?ｼ古屋国際法律事務所"}, {"agent_code": "L345", "name": "一瀬　智弘", "office": "Winslaw法律事務所"}, {"agent_code": "L346", "name": "足利　正洋", "office": "ベリーベスト法律事務所"}, {"agent_code": "L347", "name": "藤本　英臣", "office": "藤本英臣法律事務所"}, {"agent_code": "L348", "name": "堀田　剛史", "office": "堀田法律事務所"}, {"agent_code": "L349", "name": "松田　直行", "office": "松田法律事務所"}, {"agent_code": "L350", "name": "松村　大介", "office": "ベリーベスト法律事務所"}, {"agent_code": "L351", "name": "和久田　典宏", "office": "未来創造弁護士法人"}, {"agent_code": "L352", "name": "佐藤　潤一", "office": "山口・佐藤法律事務所"}, {"agent_code": "L353", "name": "富永　慎太朗", "office": "富永法律事務所"}, {"agent_code": "L354", "name": "山崎　雅彦", "office": "山崎雅彦法律事務所"}, {"agent_code": "L355", "name": "髙橋　哲也", "office": "橋哲也法律事務所"}, {"agent_code": "L356", "name": "満田　繁和", "office": "日比谷晴海通り法律事務所"}, {"agent_code": "L357", "name": "堀　裕一", "office": "堀法律事務所"}, {"agent_code": "L358", "name": "本木　順也", "office": "窪田・本木法律事務所"}, {"agent_code": "L359", "name": "小林　尚通", "office": "八雲法律事務所"}, {"agent_code": "L360", "name": "滝田　泰之", "office": "滝田　泰之"}, {"agent_code": "L361", "name": "草野　浩介", "office": "ベリーベスト法律事務所"}, {"agent_code": "L362", "name": "柴田　良", "office": "AIN法律事務所"}, {"agent_code": "L363", "name": "渡辺　晃子", "office": "弁護士法人山下江法律事務所福山支部"}, {"agent_code": "L364", "name": "江口　大三郎", "office": "江口法律事務所"}, {"agent_code": "L365", "name": "朝倉　由美", "office": "弁護士法人OneAsia"}, {"agent_code": "L366", "name": "早川　潤", "office": "中島・早川・北村法律事務所"}, {"agent_code": "L367", "name": "田中　健太郎", "office": "弁護士法人東京スカイ法律事務所"}, {"agent_code": "L368", "name": "加藤　怜", "office": "加藤法律事務所"}, {"agent_code": "L369", "name": "吉永　英男", "office": "ENA総合法律事務所"}, {"agent_code": "L370", "name": "堀田　暁之", "office": "堀田暁之法律事務所"}, {"agent_code": "L371", "name": "井田　雅貴", "office": "?"}, {"agent_code": "L372", "name": "岡本　卓也", "office": "岡本法律事務所"}, {"agent_code": "L373", "name": "森﨑　翔", "office": "弁護士法人照国総合法律事務所"}, {"agent_code": "L374", "name": "北村　一", "office": "葵綜合法律事務所"}, {"agent_code": "L375", "name": "増田　貴則", "office": "法テラス雲仙法律事務所"}, {"agent_code": "L376", "name": "榊原　顕太郎", "office": "榊原顕太郎法律事務所"}, {"agent_code": "L377", "name": "塚田　学", "office": "知事公館前法律事務所"}, {"agent_code": "L378", "name": "松本　宗道", "office": "弁護士法人一番町綜合法律事務所内"}, {"agent_code": "L379", "name": "金澤　万里子", "office": "法テラス千葉法律事務所"}, {"agent_code": "L380", "name": "安藤　秀樹", "office": "安藤法律事務所"}, {"agent_code": "L381", "name": "荒武　善斉", "office": "荒武法律事務所"}, {"agent_code": "L382", "name": "小松　新", "office": "法律事務所Z"}, {"agent_code": "L383", "name": "髙木　登", "office": "木法律事務所"}, {"agent_code": "L384", "name": "青沼　貴之", "office": "ベリーベスト法律事務所"}, {"agent_code": "L385", "name": "今田　俊夫", "office": "今田法律事務所"}, {"agent_code": "L386", "name": "稲葉　進太郎", "office": "川崎パシフィック法律事務所"}, {"agent_code": "L387", "name": "松村　好典", "office": "松村法律事務所"}, {"agent_code": "L388", "name": "藤井　哲也", "office": "富士パートナーズ法律事務所"}, {"agent_code": "L389", "name": "星野　圭祐", "office": "安田総合法律事務所"}, {"agent_code": "L390", "name": "吉田　幸宗", "office": "吉田法律事務所"}, {"agent_code": "L391", "name": "高橋　崇", "office": "ながまち駅前法律事務所"}, {"agent_code": "L392", "name": "勝間田　淳", "office": "トラスト弁護士法人"}, {"agent_code": "L393", "name": "広谷　渉", "office": "横浜法律事務所"}, {"agent_code": "L394", "name": "西口　竜司", "office": "神戸マリン綜合法律事務所"}, {"agent_code": "L395", "name": "村松　健太郎", "office": "名古屋第一法律事務所"}, {"agent_code": "L396", "name": "内藤　秀文", "office": "内藤総合法律事務所"}, {"agent_code": "L397", "name": "増川　拓", "office": "弁護士法人北海道みらい法律事務所"}, {"agent_code": "L398", "name": "武内　良平", "office": "武内良平法律事務所"}, {"agent_code": "L399", "name": "才口　千晴", "office": "TMI総合法律事務所"}, {"agent_code": "L400", "name": "小笠原　亘", "office": "石川法律事務所"}, {"agent_code": "L401", "name": "村木　茂", "office": "青葉総合法律事務所"}, {"agent_code": "L402", "name": "野﨑　洋平", "office": "神田小川町法律時会計事務所"}, {"agent_code": "L403", "name": "塩野　隆史", "office": "塩野山下法律事務所"}, {"agent_code": "L404", "name": "森岡　佑貴", "office": "みどり法律事務所"}, {"agent_code": "L405", "name": "髙木　悠司", "office": "岡野法律事務所"}, {"agent_code": "L406", "name": "及川　健一郎", "office": "立川・及川・野竹法律事務所"}, {"agent_code": "L407", "name": "末永　久大", "office": "弁護士法人末永法律事務所"}, {"agent_code": "L408", "name": "小川　正美", "office": "南青山J＆Ｍ総合法律事務所"}, {"agent_code": "L409", "name": "本田　隆慎", "office": "弁護士法人本田総合法律事務所"}, {"agent_code": "L410", "name": "鳥　正靖", "office": "はばたき法律事務所"}, {"agent_code": "L411", "name": "山田　真也", "office": "弁護士法人一新総合法律事務所"}, {"agent_code": "L412", "name": "中田　裕人", "office": "柴田・鈴木・中田法律事務所"}, {"agent_code": "L413", "name": "角　学", "office": "弁護士法人葛飾総合法律事務所"}, {"agent_code": "L414", "name": "近藤　岳", "office": "ベリーベスト法律事務所"}, {"agent_code": "L415", "name": "河井　浩志", "office": "法律事務所Lapin"}, {"agent_code": "L416", "name": "伊山　正和", "office": "京都総合法律事務所"}, {"agent_code": "L417", "name": "山田　晃義", "office": "二見・山田総合法律事務所"}, {"agent_code": "L418", "name": "呉　国峰", "office": "法律事務所 栞"}, {"agent_code": "L419", "name": "榎本　聡", "office": "榎本聡法律事務所"}, {"agent_code": "L420", "name": "瀬河　良太", "office": "はなぞの綜合法律事務所"}, {"agent_code": "L421", "name": "大宮　立", "office": "レックス法律事務所"}, {"agent_code": "L422", "name": "二宮　淳悟", "office": "新潟合同法律事務所"}, {"agent_code": "L423", "name": "樋口　翔馬", "office": "樋口法律事務所"}, {"agent_code": "L424", "name": "長谷川　達紀", "office": "新静岡駅前法律事務所"}, {"agent_code": "L425", "name": "伊藤　海大", "office": "弁護士法人関西法律特許事務所"}, {"agent_code": "L426", "name": "新井　英章", "office": "横地法律事務所"}, {"agent_code": "L427", "name": "関　麻衣子", "office": "千代田の郷法律事務所"}, {"agent_code": "L428", "name": "平松　達基", "office": "三輪知雄法律事務所"}, {"agent_code": "L429", "name": "加藤　晃敏", "office": "PSF法律事務所"}, {"agent_code": "L430", "name": "大河内　將貴", "office": "第一総合法律事務所"}, {"agent_code": "L431", "name": "小野　桃子", "office": "小野桃子法律事務所"}, {"agent_code": "L432", "name": "太田　成", "office": "m法人後藤・太田・立岡法律事務所"}, {"agent_code": "L433", "name": "森川　聖也", "office": "永冨法律事務所"}, {"agent_code": "L434", "name": "今田　覚", "office": "Winslaw法律事務所"}, {"agent_code": "L435", "name": "中島　博之", "office": "弁護士法人東京フレックス法律事務所"}, {"agent_code": "L436", "name": "高橋　利昌", "office": "PLAZA総合法律事務所"}, {"agent_code": "L437", "name": "安藤　一幹", "office": "名古屋駅ヒラソル法律事務所"}, {"agent_code": "L438", "name": "石田　優", "office": "弁護士法人みお綜合法律事務所"}, {"agent_code": "L439", "name": "栗原　隆之", "office": "栗原法律事務所"}, {"agent_code": "L440", "name": "酒井　将平", "office": "酒井法律事務所"}, {"agent_code": "L441", "name": "大野　慶樹", "office": "弁護士法人大野慶樹法律事務所"}, {"agent_code": "L442", "name": "髙橋　久善", "office": "弁護士法人クレイス法律事務所"}, {"agent_code": "L443", "name": "桑原　義浩", "office": "弁護士法人しらぬひ柳川法律事務所"}, {"agent_code": "L444", "name": "小林　嵩", "office": "弁護士法人はれやか法律事務所"}, {"agent_code": "L445", "name": "大西　敦", "office": "ひたちのフロンティア法律事務所"}, {"agent_code": "L446", "name": "廣畑　牧人", "office": "清宮・生山法律事務所"}, {"agent_code": "L447", "name": "森下　和也", "office": "弁護士法人錦城法律事務所"}, {"agent_code": "L448", "name": "岡本　栄", "office": "岡本栄法律事務所"}, {"agent_code": "L449", "name": "阿部　航太", "office": "桃原法律事務所"}, {"agent_code": "L450", "name": "内村　涼子", "office": "日比谷晴海通り法律事務所"}, {"agent_code": "L451", "name": "M　健作", "office": "鹿児島ファースト法律事務所"}, {"agent_code": "L452", "name": "榮田　翔太郎", "office": "弁護士法人田中彰寿法律事務所"}, {"agent_code": "L453", "name": "松橋　昭範", "office": "神谷明文法律事務所"}, {"agent_code": "L454", "name": "尾崎　隆", "office": "町田駅前法律事務所"}, {"agent_code": "L455", "name": "増田　拓也", "office": "弁護士法人色川法律事務所"}, {"agent_code": "L456", "name": "柿崎　博昭", "office": "柿崎法律事務所"}, {"agent_code": "L457", "name": "齋藤　尚", "office": "つつじが丘法律事務所"}, {"agent_code": "L458", "name": "椎木　謙太", "office": "椎木法律事務所"}, {"agent_code": "L459", "name": "田口　勤", "office": "田口勤法律事務所"}, {"agent_code": "L460", "name": "藤元　達弥", "office": "藤元法律事務所"}, {"agent_code": "L461", "name": "新田　周作", "office": "葵綜合法律事務所"}, {"agent_code": "L462", "name": "髙橋　徹", "office": "橋徹総合法律事務所"}, {"agent_code": "L463", "name": "二本松　利光", "office": "にほんまつ法律事務所"}, {"agent_code": "L464", "name": "元樋　翔吾", "office": "弁護士法人はな綜合法律事務所"}, {"agent_code": "L465", "name": "杉山　博亮", "office": "かなえ国際法律事務所"}, {"agent_code": "L466", "name": "笹津　備文", "office": "甲府中央法律事務所"}, {"agent_code": "L467", "name": "?癘{　信也", "office": "?癘{信也法律事務所"}, {"agent_code": "L468", "name": "井ノ川　龍太朗", "office": "よつ葉法律事務所"}, {"agent_code": "L469", "name": "作山　直輝", "office": "盛岡ひかり法律事務所"}, {"agent_code": "L470", "name": "甘利　禎康", "office": "弁護士法人優誠法律事務所"}, {"agent_code": "L471", "name": "田中　俊平", "office": "弁護士法人HOPE法律事務所"}, {"agent_code": "L472", "name": "丸山　一郎", "office": "東京晴和法律事務所"}, {"agent_code": "L473", "name": "徳勝　丈", "office": "弁護士法人早稲田リーガルコモンズ"}, {"agent_code": "L474", "name": "松川　邦之", "office": "松川邦之法律事務所"}, {"agent_code": "L475", "name": "浦田　秀幸", "office": "浦田法律事務所"}, {"agent_code": "L476", "name": "兒玉　浩生", "office": "兒玉法律事務所"}, {"agent_code": "L477", "name": "棚橋　邦行", "office": "弁護士法人川島和男法律事務所"}, {"agent_code": "L478", "name": "森川　友尋", "office": "三宅坂総合法律事務所"}, {"agent_code": "L479", "name": "栗田　英一", "office": "栗田法律事務所"}, {"agent_code": "L480", "name": "尾関　大雅", "office": "九州鳥栖・芯鋭法律事務所"}, {"agent_code": "L481", "name": "平岡　敦", "office": "十全法律事務所"}, {"agent_code": "L482", "name": "岡本　歩佳", "office": "弁護士法人川原総合法律事務所"}, {"agent_code": "L483", "name": "神崎　建宏", "office": "弁護士法人LEON大阪事務所"}, {"agent_code": "L484", "name": "山口　貴士", "office": "リンク総合法律事務所"}, {"agent_code": "L485", "name": "安藤　博", "office": "弁護士法人きんか"}, {"agent_code": "L486", "name": "栗脇　康秀", "office": "栗脇法律事務所"}, {"agent_code": "L487", "name": "山辺　直義", "office": "ひらつか西口法律事務所"}, {"agent_code": "L488", "name": "中村　亮平", "office": "そらいろ法律事務所"}, {"agent_code": "L489", "name": "黒柳　良子", "office": "弁護士法人中京法律事務所"}, {"agent_code": "L490", "name": "久保 潤弥", "office": "久保総合法律事務所"}, {"agent_code": "L491", "name": "秋吉　克洋", "office": "玉名法律事務所"}, {"agent_code": "L492", "name": "佐藤　光太", "office": "ステラ綜合法律事務所"}, {"agent_code": "L493", "name": "松本　寿親", "office": "齋藤総合法律事務所"}, {"agent_code": "L494", "name": "松本　佳朗", "office": "ゴッディス法律事務所"}, {"agent_code": "L495", "name": "河原　優", "office": "福山あおい法律事務所"}, {"agent_code": "L496", "name": "安川　愼二", "office": "調布武蔵野の森法律事務所"}, {"agent_code": "L497", "name": "丸山　紀人", "office": "五反田法律事務所"}, {"agent_code": "L498", "name": "山﨑　省吾", "office": "山省吾法律事務所"}, {"agent_code": "L499", "name": "川口　丹子", "office": "太田川口法律事務所"}, {"agent_code": "L500", "name": "千葉　飛鳥", "office": "弁護士法人東京パブリック法律事務所"}, {"agent_code": "L501", "name": "小路　敏宗", "office": "中央総合法律事務所"}, {"agent_code": "L502", "name": "堀尾　雅光", "office": "おばら総合法律事務所"}, {"agent_code": "L503", "name": "上福元尚之", "office": "堂免法律事務所"}, {"agent_code": "L504", "name": "西方　夏樹", "office": "シグマ麹町法律事務所"}, {"agent_code": "L505", "name": "細江　駿介", "office": "名古屋Ｈ＆Ｙ法律事務所"}, {"agent_code": "L506", "name": "赤羽　啓", "office": "･事務所"}, {"agent_code": "L507", "name": "中村　麗子", "office": "熊野量規法律事務所"}, {"agent_code": "L508", "name": "堀　泰介", "office": "森下公園前法律事務所"}, {"agent_code": "L509", "name": "植村　拓人", "office": "登大路総合法律事務所"}, {"agent_code": "L510", "name": "井村　剛", "office": "ののいち法律事務所"}, {"agent_code": "L511", "name": "川本　英典", "office": "弁護士法人　瀬戸旭法律事務所"}, {"agent_code": "L512", "name": "松永　暁太", "office": "ふじ合同法律事務所"}, {"agent_code": "L513", "name": "近藤　祥文", "office": "のぞみ総合法律事務所"}, {"agent_code": "L514", "name": "小林　あや", "office": "小林功武法律事務所"}, {"agent_code": "L515", "name": "重野　剛寛", "office": "岡野法律事務所"}, {"agent_code": "L516", "name": "安藤　健", "office": "福井宝永法律事務所"}, {"agent_code": "L517", "name": "外海　周二", "office": "外海法律事務所"}, {"agent_code": "L518", "name": "平岡　新", "office": "浜名湖法律事務所"}, {"agent_code": "L519", "name": "竹之内　智哉", "office": "竹之内智哉法律事務所"}, {"agent_code": "L520", "name": "桃川　雅之", "office": "桃川法律事務所"}, {"agent_code": "L521", "name": "園田　洋輔", "office": "姫路総合法律事務所"}, {"agent_code": "L522", "name": "上石　奈緒", "office": "四季の法律事務所"}, {"agent_code": "L523", "name": "溝口　仁志", "office": "アイ・パートナーズ法律事務所"}, {"agent_code": "L524", "name": "加藤　高明", "office": "Ａｄａｍ法律事務所"}, {"agent_code": "L525", "name": "立川　諒輔", "office": "弁護士法人すずたか総合法律事務所"}, {"agent_code": "L526", "name": "河村　佳起", "office": "アイ・タウン法律事務所"}, {"agent_code": "L527", "name": "森長　大貴", "office": "弁護士法人兼六法律事務所"}, {"agent_code": "L528", "name": "岩堀　修都", "office": "U&T vessel法律事務所"}, {"agent_code": "L529", "name": "西村　直祐", "office": "弁護士法人緒方総合法律事務所"}, {"agent_code": "L530", "name": "宮澤　拓也", "office": "宮澤拓也法律事務所"}, {"agent_code": "L531", "name": "黒澤　有紀子", "office": "東京南部法律事務所"}, {"agent_code": "L532", "name": "西宮　由希子", "office": "ハーヴェスト法律事務所"}, {"agent_code": "L533", "name": "山田　圭介", "office": "山田法律会計事務所"}, {"agent_code": "L534", "name": "堀口　昌孝", "office": "堀口法律事務所"}, {"agent_code": "L535", "name": "伊藤　まゆ", "office": "大手町共同法律事務所"}, {"agent_code": "L536", "name": "村越　芳美", "office": "村越芳美法律事務所"}, {"agent_code": "L537", "name": "中田　健一", "office": "中田法律事務所"}, {"agent_code": "L538", "name": "鯵坂　和浩", "office": "弁護士法人浅野総合法律事務所"}, {"agent_code": "L539", "name": "樋詰　哲朗", "office": "弁護士法人あさひ法律事務所"}, {"agent_code": "L540", "name": "大澤　一雄", "office": "大澤法律事務所"}, {"agent_code": "L541", "name": "鵜之沢　大地", "office": "前田・鵜之沢法律事務所"}, {"agent_code": "L542", "name": "上沼　紫野", "office": "LM虎ノ門南法律事務所"}, {"agent_code": "L543", "name": "山本　毅", "office": "山本毅法律事務所"}, {"agent_code": "L544", "name": "成瀬　隆", "office": "名古屋丸の内・成瀬法律事務所"}, {"agent_code": "L545", "name": "迎田　由紀", "office": "LTE法律事務所"}, {"agent_code": "L546", "name": "加藤　貴宣", "office": "川崎つばさ法律事務所"}, {"agent_code": "L547", "name": "井澤　秀昭", "office": "井澤・黒井・阿部法律事務所"}, {"agent_code": "L548", "name": "栗原　岳史", "office": "佐久法律事務所"}, {"agent_code": "L549", "name": "宮岡　孝之", "office": "今村記念法律事務所"}, {"agent_code": "L550", "name": "渡邊　弘毅", "office": "宮澤綜合法律事務所"}, {"agent_code": "L551", "name": "平野　憲子", "office": "あかり総合法律事務所"}, {"agent_code": "L552", "name": "原　秀一", "office": "鈴木泉法律事務所"}, {"agent_code": "L553", "name": "遠藤　啓之", "office": "田島・寺西・遠藤法律事務所"}, {"agent_code": "L554", "name": "中條　秀和", "office": "新橋綜合法律事務所"}, {"agent_code": "L555", "name": "坂東　大士", "office": "澁谷・坂東法律事務所"}, {"agent_code": "L556", "name": "伊藤　誠基", "office": "三重合同法律事務所"}, {"agent_code": "L557", "name": "山下　洋平", "office": "小早川法律事務所"}, {"agent_code": "L558", "name": "佐々木　輝", "office": "AWL法律税務事務所"}, {"agent_code": "L559", "name": "川上　義尚", "office": "川上総合法律事務所"}, {"agent_code": "L560", "name": "吉田　英善", "office": "明誠法律事務所"}, {"agent_code": "L561", "name": "鈴木　啓示", "office": "横浜合同法律事務所"}, {"agent_code": "L562", "name": "乾　美恵子", "office": "Ｕ．Ｉ総合法律事務所"}, {"agent_code": "L563", "name": "塩谷　知一", "office": "弁護士法人立石塩谷法律事務所"}, {"agent_code": "L564", "name": "遠藤　優介", "office": "遠藤優介法律事務所"}, {"agent_code": "L565", "name": "前田　基博", "office": "前田基博法律事務所"}, {"agent_code": "L566", "name": "中田　佳孝", "office": "平和台法律事務所"}, {"agent_code": "L567", "name": "山岸　勇紀", "office": "矢野山岸法律事務所"}, {"agent_code": "L568", "name": "伊藤　恒一郎", "office": "伊藤法律会計事務所"}, {"agent_code": "L569", "name": "中村　信雄", "office": "サン綜合法律事務所"}, {"agent_code": "L570", "name": "池田　慎介", "office": "稚内ひまわり基金法律事務所"}, {"agent_code": "L571", "name": "渡部　朋広", "office": "インテグラル法律事務所"}, {"agent_code": "L572", "name": "飯尾　正彦", "office": "仙台正義法律事務所"}, {"agent_code": "L573", "name": "P　美枝", "office": "会津鶴城法律事務所"}, {"agent_code": "L574", "name": "村田　雅彦", "office": "弁護士法人小寺・村田法律事務所"}, {"agent_code": "L575", "name": "島　昭宏", "office": "弁護士法人アーライツ法律事務所"}, {"agent_code": "L576", "name": "堀越智也", "office": "つくば中央法律事務所"}, {"agent_code": "L577", "name": "関口　尚", "office": "はむら法律事務所"}, {"agent_code": "L578", "name": "小原　健", "office": "@律事務所"}, {"agent_code": "L579", "name": "鶴崎　陽三", "office": "弁護士法人松本・永野法律事務所"}, {"agent_code": "L580", "name": "髙安　聡", "office": "ノースブルー総合法律事務所"}, {"agent_code": "L581", "name": "笹瀬　健児", "office": "弁護士法人法律事務所リーガルカウンセラーズ"}, {"agent_code": "L582", "name": "首藤　康智", "office": "弁護士法人菊井法律事務所"}, {"agent_code": "L583", "name": "池田　千絵", "office": "名川・岡村法律事務所"}, {"agent_code": "L584", "name": "足立　敬太", "office": "あい弁護士法人"}, {"agent_code": "L585", "name": "甲斐　一真", "office": "梅ヶ枝中央法律事務所"}, {"agent_code": "L586", "name": "中山　修身", "office": "中山・石村法律事務所"}, {"agent_code": "L587", "name": "根本　康弘", "office": "AZ MORE 国際法律事務所"}, {"agent_code": "L588", "name": "高松　薫", "office": "隼あすか法律事務所"}, {"agent_code": "L589", "name": "天野　和生", "office": "谷口総合法律事務所"}, {"agent_code": "L590", "name": "浅川　有三", "office": "浅川倉方法律事務所"}, {"agent_code": "L591", "name": "大西　達也", "office": "天野・上垣法律会計事務所"}, {"agent_code": "L592", "name": "上釜　明大", "office": "弁護士法人福元法律事務所"}, {"agent_code": "L593", "name": "北川　将広", "office": "きたがわ法律事務所"}, {"agent_code": "L594", "name": "小椋　義孝", "office": "司法書士　小椋義孝"}, {"agent_code": "L595", "name": "佐藤　剛志", "office": "佐藤法律事務所"}, {"agent_code": "L596", "name": "橋　正幸", "office": "ルーセント法律事務所"}, {"agent_code": "L597", "name": "小林　扶由樹", "office": "小林法律事務所"}, {"agent_code": "L598", "name": "新田　裕一郎", "office": "新田法律事務所"}, {"agent_code": "L599", "name": "信藤　秀樹", "office": "信藤秀樹法律事務所"}, {"agent_code": "L600", "name": "上椙　裕章", "office": "弁護士法人あすか"}, {"agent_code": "L601", "name": "蜂須賀　邦夫", "office": "蜂須賀邦夫法律事務所"}, {"agent_code": "L602", "name": "プリティ　梨佐クリスティーン", "office": "弁護士法人淀屋橋・山上合同"}, {"agent_code": "L603", "name": "駒井　重忠", "office": "菜の花総合法律事務所"}, {"agent_code": "L604", "name": "小野　恭", "office": "浅石法律事務所"}, {"agent_code": "L605", "name": "山崎　義明", "office": "ひろしま東部法律事務所"}, {"agent_code": "L606", "name": "西牧　佑介", "office": "アクセスライツ法律事務所"}, {"agent_code": "L607", "name": "宮城　和博", "office": "宮城和博法律事務所"}, {"agent_code": "L608", "name": "泉澤　章", "office": "東京合同法律事務所"}, {"agent_code": "L609", "name": "北川　雄士", "office": "大阪グラディアトル法律事務所"}, {"agent_code": "L610", "name": "会田　哲也", "office": "あぽろ法律事務所"}, {"agent_code": "L611", "name": "宝屋敷　恭男", "office": "弁護士法人ＬＥＯＮ"}, {"agent_code": "L612", "name": "榊原　新也", "office": "弁護士法人朝日中央綜合法律事務所"}, {"agent_code": "L613", "name": "中川　亮", "office": "東京共同法律事務所"}, {"agent_code": "L614", "name": "吉久保　信一", "office": "田中・吉久保法律事務所"}, {"agent_code": "L615", "name": "菅野　亮", "office": "法律事務所シリウス"}, {"agent_code": "L616", "name": "山口　卓", "office": "弁護士法人山下江法律事務所"}, {"agent_code": "L617", "name": "押田　晃", "office": "押田・森岡法律事務所"}, {"agent_code": "L618", "name": "牛見　和博", "office": "弁護士法人牛見総合法律事務所"}, {"agent_code": "L619", "name": "樋爪　勇", "office": "樋爪・大原法律事務所"}, {"agent_code": "L620", "name": "堀米　直子", "office": "吉田綜合法律事務所"}, {"agent_code": "L621", "name": "塚本　順久", "office": "なぎさ法律事務所"}, {"agent_code": "L622", "name": "鈴木　秀忠", "office": "マーブル法律事務所"}, {"agent_code": "L623", "name": "木村　幸一", "office": "木村幸一法律事務所"}, {"agent_code": "L624", "name": "今城　崇", "office": "弁護士法人佐和法律事務所"}, {"agent_code": "L625", "name": "P　裕喜", "office": "渡瀬・國松法律事務所"}, {"agent_code": "L626", "name": "五十嵐　崇仁", "office": "五十嵐法律事務所"}, {"agent_code": "L627", "name": "見野彰信", "office": "見野法律事務所"}, {"agent_code": "L628", "name": "花田　雄一郎", "office": "中野綜合法律事務所"}, {"agent_code": "L629", "name": "宮川　舞", "office": "銀座数寄屋通り法律事務所"}, {"agent_code": "L630", "name": "野澤　航介", "office": "福家総合法律事務所"}, {"agent_code": "L631", "name": "田中　毅", "office": "大田・田中法律事務所"}, {"agent_code": "L632", "name": "藤田　城治", "office": "森の風法律事務所"}, {"agent_code": "L633", "name": "筒井　秋成", "office": "弁護士法人大江橋法律事務所"}, {"agent_code": "L634", "name": "山本　峻義", "office": "弁護士法人リーセット"}, {"agent_code": "L635", "name": "後藤　真孝", "office": "後藤総合法律事務所"}, {"agent_code": "L636", "name": "角田　智美", "office": "あかねくさ法律事務所"}, {"agent_code": "L637", "name": "森　立", "office": "弁護士法人ダヴィンチ"}, {"agent_code": "L638", "name": "中村　崇", "office": "弁護士法人中村・大城国際法律事務所"}, {"agent_code": "L639", "name": "高橋　未紗", "office": "千鳥ヶ淵法律事務所"}, {"agent_code": "L640", "name": "横山　雅文", "office": "表参道法律事務所"}, {"agent_code": "L641", "name": "森下　裕介", "office": "のぞみの森法律事務所"}, {"agent_code": "L642", "name": "津森　美教", "office": "中井総合法律事務所"}, {"agent_code": "L643", "name": "長井　康人", "office": "長井法律事務所"}, {"agent_code": "L644", "name": "牧野　太郎", "office": "牧野太郎経営法律事務所"}, {"agent_code": "L645", "name": "岡野　佑紀", "office": "弁護士法人エッグ"}, {"agent_code": "L646", "name": "石井　慎也", "office": "石井慎也法律事務所"}, {"agent_code": "L647", "name": "竹内　彰", "office": "ひめじ城下町法律事務所"}, {"agent_code": "L648", "name": "井上　智夫", "office": "井上智夫法律事務所"}, {"agent_code": "L649", "name": "満村　和樹", "office": "弁護士法人長堀橋フィル"}, {"agent_code": "L650", "name": "倉知　孝匡", "office": "弁護士法人平井法律事務所"}, {"agent_code": "L651", "name": "石井　宏之", "office": "ARKESTRA法律事務所"}, {"agent_code": "L652", "name": "頼富　祐斗", "office": "弁護士法人住田法律事務所"}, {"agent_code": "L653", "name": "大鹿　浩彰", "office": "司法書士法人　大鹿事務所"}, {"agent_code": "L654", "name": "土井　健史", "office": "舩冨光治法律事務所"}, {"agent_code": "L655", "name": "高橋　亮", "office": "弁護士法人高橋法律事務所"}, {"agent_code": "L656", "name": "中村　栄治", "office": "中村・川端・山内法律事務所"}, {"agent_code": "L657", "name": "森田　和明", "office": "森田和明法律事務所"}, {"agent_code": "L658", "name": "金　浩俊", "office": "金法律事務所"}, {"agent_code": "L659", "name": "森下　英俊", "office": "弁護士法人松阪総合法律事務所"}, {"agent_code": "L660", "name": "横川　裕宣", "office": "ｱ所"}, {"agent_code": "L661", "name": "井上　彰", "office": "弁護士法人栄光・栄光綜合法律事務所"}, {"agent_code": "L662", "name": "田坂　尚樹", "office": "岡野法律事務所"}, {"agent_code": "L663", "name": "加藤　健一", "office": "大塚・加藤法律事務所"}, {"agent_code": "L664", "name": "吉田　肇", "office": "弁護士法人天満法律事務所"}, {"agent_code": "L665", "name": "助川　大樹", "office": "町田第一法律事務所"}, {"agent_code": "L666", "name": "清水　大地", "office": "協和綜合法律事務所"}, {"agent_code": "L667", "name": "髙橋　拓矢", "office": "菊田・橋法律事務所"}, {"agent_code": "L668", "name": "黒岩　将史", "office": "和勢法律事務所"}, {"agent_code": "L669", "name": "田邊　匡彦", "office": "黒崎合同法律事務所"}, {"agent_code": "L670", "name": "三浦　守孝", "office": "三浦法律事務所"}, {"agent_code": "L671", "name": "三坂　和也", "office": "山本特許法律事務所"}, {"agent_code": "L672", "name": "近藤　信彦", "office": "近藤信彦法律事務所"}, {"agent_code": "L673", "name": "宇賀神　崇", "office": "宇賀神国際法律事務所"}, {"agent_code": "L674", "name": "大谷　健太", "office": "くまがや法律事務所"}, {"agent_code": "L675", "name": "河野　正嗣", "office": "法テラスむつ法律事務所"}, {"agent_code": "L676", "name": "望月　光彦", "office": "弁護士法人虎門中央法律事務所"}, {"agent_code": "L677", "name": "髙木　誠之", "office": "弁護士法人片岡法律事務所"}, {"agent_code": "L678", "name": "崎田　健二", "office": "弁護士法人衛藤法律特許事務所内"}, {"agent_code": "L679", "name": "町田　北斗", "office": "大森山王法律会計事務所"}, {"agent_code": "L680", "name": "片岡　拓海", "office": "弁護士法人ＡＬＧ＆Ａｓｓｏｃｉａｔｅｓ姫路法律事務所"}, {"agent_code": "L681", "name": "中島　俊太朗", "office": "中島総合法律事務所"}, {"agent_code": "L682", "name": "鎌田　幸夫", "office": "北大阪総合法律事務所"}, {"agent_code": "L683", "name": "与川　勇馬", "office": "林法律事務所"}, {"agent_code": "L684", "name": "北見　淑之", "office": "北見淑之法律事務所"}, {"agent_code": "L685", "name": "加藤　真", "office": "法律事務所おうみ"}, {"agent_code": "L686", "name": "藤田 哲", "office": "ブナの森法律事務所"}, {"agent_code": "L687", "name": "犬飼　善和", "office": "新潟あやめ法律事務所"}, {"agent_code": "L688", "name": "松岡　勇樹", "office": "グラディアトル法律事務所"}, {"agent_code": "L689", "name": "吉谷　健一", "office": "姫路あゆむ法律事務所"}, {"agent_code": "L690", "name": "竹原　文雄", "office": "弁護士法人東京フロンティア基金法律事務所"}, {"agent_code": "L691", "name": "湯澤 蓮", "office": "弁護士法人LEON"}, {"agent_code": "L692", "name": "西村　夏奈", "office": "弁護士法人東京新宿法律事務所"}, {"agent_code": "L693", "name": "三好　勇気", "office": "新宿三好法律事務所"}, {"agent_code": "L694", "name": "金　紀彦", "office": "弁護士法人オルビス東京事務所"}, {"agent_code": "L695", "name": "本橋　典也", "office": "P・國松法律事務所"}, {"agent_code": "L696", "name": "芳賀　彩", "office": "金子・中・森本法律特許事務所"}, {"agent_code": "L697", "name": "浅田　健一郎", "office": "折田総合法律事務所"}, {"agent_code": "L698", "name": "尾崎　雅俊", "office": "辰野・尾崎・藤井法律事務所"}, {"agent_code": "L699", "name": "嶋田　幸司", "office": "嶋田幸司法律事務所"}, {"agent_code": "L700", "name": "小林　正人", "office": "鹿野・森田法律事務所"}, {"agent_code": "L701", "name": "水戸　貴之", "office": "水戸貴之法律事務所"}, {"agent_code": "L702", "name": "小林　洋介", "office": "弁護士法人熊谷・岩田法律事務所"}, {"agent_code": "L703", "name": "大砂　裕幸", "office": "船場中央法律事務所"}, {"agent_code": "L704", "name": "小泉　武嗣", "office": "小泉法律事務所"}, {"agent_code": "L705", "name": "伊藤　隆穂", "office": "伊藤隆穂法律事務所"}, {"agent_code": "L706", "name": "屶網　大介", "office": "葵総合法律事務所"}, {"agent_code": "L707", "name": "廣瀬　太亮", "office": "ひろせ法律事務所"}, {"agent_code": "L708", "name": "檜上　芙雪", "office": "弁護士法人山下江法律事務所福山支部"}, {"agent_code": "L709", "name": "西墻　省吾", "office": "菜の花総合法律事務所"}, {"agent_code": "L710", "name": "檜山　洋子", "office": "ヒヤマ・クボタ法律事務所"}, {"agent_code": "L711", "name": "橋澤　加世", "office": "弁護士法人米子東町法律事務所"}, {"agent_code": "L712", "name": "高島　浩", "office": "弁護士法人神戸シティ法律事務所"}, {"agent_code": "L713", "name": "鈴木　茂雄", "office": "鈴木茂雄法律事務所"}, {"agent_code": "L714", "name": "倉田　敬利", "office": "くらた法律事務所"}, {"agent_code": "L715", "name": "眞庭　裕一", "office": "北毛法律事務所"}, {"agent_code": "L716", "name": "宮尾　俊輔", "office": "弁護士法人はるか栃木支部栃木宇都宮法律事務所"}, {"agent_code": "L717", "name": "村上　充洋", "office": "厚別法律事務所"}, {"agent_code": "L718", "name": "伊関　祐", "office": "ＡＩＨ法律事務所"}, {"agent_code": "L719", "name": "栃本　一樹", "office": "弁護士法人細見・栃本法律事務所"}, {"agent_code": "L720", "name": "濱田 将成", "office": "弁護士法人濱田総合法律事務所"}, {"agent_code": "L721", "name": "細見　孝次", "office": "ネクスト法律事務所"}, {"agent_code": "L722", "name": "井口　賢人", "office": "江川西川綜合法律事務所"}, {"agent_code": "L723", "name": "中尾　天", "office": "中尾 天 法律事務所"}, {"agent_code": "L724", "name": "鈴木　悠起", "office": "あおい総合法律事務所"}, {"agent_code": "L725", "name": "原　悠太", "office": "ＲＨＡ法律事務所"}, {"agent_code": "L726", "name": "佐保　貴大", "office": "仙台シリウス法律事務所"}, {"agent_code": "L727", "name": "守谷　俊宏", "office": "弁護士法人平田法律事務所"}, {"agent_code": "L728", "name": "田中　宏", "office": "きっかわ法律事務所"}, {"agent_code": "L729", "name": "杉田　聡士", "office": "弁護士法人オリオン池袋東口法律事務所"}, {"agent_code": "L730", "name": "大橋　正崇", "office": "弁護士法人AO"}, {"agent_code": "L731", "name": "安東　宏三", "office": "安東宏三法律事務所"}, {"agent_code": "L732", "name": "曽根　英雄", "office": "曽根英雄法律事務所"}, {"agent_code": "L733", "name": "岩倉　匠未", "office": "弁護士法人平松剛法律事務所"}, {"agent_code": "L734", "name": "荒木　謙人", "office": "エイトフォース法律事務所"}, {"agent_code": "L735", "name": "吉竹　大樹", "office": "山本柴法律事務所"}, {"agent_code": "L736", "name": "金子　正志", "office": "金子正志法律事務所"}, {"agent_code": "L737", "name": "安田　文彦", "office": "安田法律事務所"}, {"agent_code": "L738", "name": "津久井　進", "office": "弁護士法人芦屋西宮市民法律事務所"}, {"agent_code": "L739", "name": "谷藤　聡史", "office": "ベリーベスト法律事務所"}, {"agent_code": "L740", "name": "西野　三紀子", "office": "西野法律事務所"}, {"agent_code": "L741", "name": "羽柴　貴宏", "office": "羽柴法律事務所"}, {"agent_code": "L742", "name": "三好　裕一朗", "office": "三好裕一朗法律事務所"}, {"agent_code": "L743", "name": "青野　渉", "office": "青野・広田・おぎの法律事務所"}, {"agent_code": "L744", "name": "上岡　美穂", "office": "吹上法律事務所"}, {"agent_code": "L745", "name": "篠原　優太", "office": "虎ノ門法律経済事務所"}, {"agent_code": "L746", "name": "西岡　孝浩", "office": "弁護士法人RITA総合法律事務所"}, {"agent_code": "L747", "name": "西村　啓", "office": "tou法律事務所"}, {"agent_code": "L748", "name": "真野　文惠", "office": "弁護士法人ひまわりパートナーズ"}, {"agent_code": "L749", "name": "林　真由美", "office": "みのかも法律事務所"}, {"agent_code": "L750", "name": "片岡　健太", "office": "小松なごみ法律事務所"}, {"agent_code": "L751", "name": "横山　由秀", "office": "弁護士法人武田法律事務所"}, {"agent_code": "L752", "name": "干田　聡太", "office": "干田法律事務所"}, {"agent_code": "L753", "name": "竹腰　峻平", "office": "東京山王法律事務所"}, {"agent_code": "L754", "name": "篠島　正幸", "office": "江川・篠島法律事務所"}, {"agent_code": "L755", "name": "池田　尚弘", "office": "東西法律事務所"}, {"agent_code": "L756", "name": "本間　拓洋", "office": "本間国際綜合法律事務所"}, {"agent_code": "L757", "name": "中川　英俊", "office": "弁護士法人柴田・中川法律特許事務所"}, {"agent_code": "L758", "name": "宮田　尚典", "office": "宮田尚典法律事務所"}, {"agent_code": "L759", "name": "白山　聖浩", "office": "ハフアンドパートナーズ法律事務所"}, {"agent_code": "L760", "name": "神邊　健司", "office": "弁護士法人関門総合法律事務所"}, {"agent_code": "L761", "name": "村井　亮英", "office": "千葉綜合法律事務所"}, {"agent_code": "L762", "name": "薦田　純一", "office": "こもだ法律事務所"}, {"agent_code": "L763", "name": "稲谷　陽一郎", "office": "いなたに法律事務所"}, {"agent_code": "L764", "name": "疋田　優", "office": "疋田会計法律事務所"}, {"agent_code": "L765", "name": "中井　達朗", "office": "LEGAL Zeus法律会計事務所"}, {"agent_code": "L766", "name": "島谷　知宏", "office": "島谷法律事務所"}, {"agent_code": "L767", "name": "田中　広太郎", "office": "弁護士法人品川国際法律事務所"}, {"agent_code": "L768", "name": "竹内　治", "office": "松本・山下綜合法律事務所"}, {"agent_code": "L769", "name": "三輪　貴幸", "office": "樟葉法律事務所"}, {"agent_code": "L770", "name": "臼井　俊治", "office": "U.I総合法律事務所"}, {"agent_code": "L771", "name": "金　裕介", "office": "さくら共同法律事務所"}, {"agent_code": "L772", "name": "鵜飼　万貴子", "office": "白水法律事務所"}, {"agent_code": "L773", "name": "黒﨑　建人", "office": "黒法律事務所"}, {"agent_code": "L774", "name": "加藤　友文", "office": "加藤友文法律事務所"}, {"agent_code": "L775", "name": "金子　智和", "office": "長瀬総合法律事務所"}, {"agent_code": "L776", "name": "瀧澤　崇", "office": "六葉法律事務所"}, {"agent_code": "L777", "name": "比嘉　麻衣子", "office": "弁護士法人エヴィス法律会計事務所"}, {"agent_code": "L778", "name": "髙野　和幸", "office": "野和幸法律事務所"}, {"agent_code": "L779", "name": "木村　新一", "office": "まつもと総合法律事務所"}, {"agent_code": "L780", "name": "加瀬野　忠吉", "office": "岡山中央法律事務所"}, {"agent_code": "L781", "name": "遠藤　大介", "office": "パシフィック法律事務所"}, {"agent_code": "L782", "name": "逢坂　哲也", "office": "米津・逢坂法律事務所"}, {"agent_code": "L783", "name": "鈴木　淳巳", "office": "弁護士法人Ａｄｌｒｅ法律事務所"}, {"agent_code": "L784", "name": "青木　淑企", "office": "青木法律事務所"}, {"agent_code": "L785", "name": "参田　敦", "office": "参田敦法律事務所"}, {"agent_code": "L786", "name": "安部　駿佑", "office": "アディーレ法律事務所"}, {"agent_code": "L787", "name": "大沼　和広", "office": "虎ノ門法律経済事務所"}, {"agent_code": "L788", "name": "村本　浩", "office": "岩谷・村本・山口法律事務所"}, {"agent_code": "L789", "name": "高市　賢人", "office": "ネクスパート法律事務所"}, {"agent_code": "L790", "name": "浅野　遼", "office": "辻河綜合法律事務所"}, {"agent_code": "L791", "name": "足立　茂樹", "office": "あおぞら法律会計事務所"}, {"agent_code": "L792", "name": "寺岡　拓也", "office": "とげぬき法律事務所"}, {"agent_code": "L793", "name": "岸本　明洋", "office": "錦天城法律事務所外国法共同事業"}, {"agent_code": "L794", "name": "一藤　剛志", "office": "立川ニアレスト法律事務所"}, {"agent_code": "L795", "name": "久保田　庸央", "office": "弁護士法人荒井・久保田総合法律事務所"}, {"agent_code": "L796", "name": "髙橋　譲二", "office": "富岡法律特許事務所"}, {"agent_code": "L797", "name": "瀧坪　渉", "office": "弁護士法人ＡＴＢ"}, {"agent_code": "L798", "name": "岡之上　蓮", "office": "ＫＯＤＡＭＡ法律事務所"}, {"agent_code": "L799", "name": "藤沼　光太", "office": "小林・弓削田法律事務所"}, {"agent_code": "L800", "name": "和手　俊允", "office": "弁護士法人長野第一法律事務所"}, {"agent_code": "L801", "name": "後藤　光利", "office": "後藤法律事務所"}, {"agent_code": "L802", "name": "泉田　健司", "office": "泉田法律事務所"}, {"agent_code": "L803", "name": "林　良介", "office": "シンプル法律事務所"}, {"agent_code": "L804", "name": "中野　正敬", "office": "弁護士法人小寺・松田法律事務所"}, {"agent_code": "L805", "name": "髙橋　翔志", "office": "DEPT弁護士法人"}, {"agent_code": "L806", "name": "馬場　智巌", "office": "学園前総合法律事務所"}, {"agent_code": "L807", "name": "水野　秀一", "office": "弁護士法人早稲田大学リーガル・クリニック"}, {"agent_code": "L808", "name": "桑島　良彰", "office": "札幌いぶき法律事務所"}, {"agent_code": "L809", "name": "中澤　克彦", "office": "弁護士法人若井綜合法律事務所"}, {"agent_code": "L810", "name": "岡田　卓也", "office": "法律事務所コスモス"}, {"agent_code": "L811", "name": "阿部　潔", "office": "仙台中央法律事務所"}, {"agent_code": "L812", "name": "安藤　友人", "office": "弁護士法人岐阜合同法律事務所"}, {"agent_code": "L813", "name": "吉川　健司", "office": "泉法律事務所"}, {"agent_code": "L814", "name": "大前　恒明", "office": "弁護士法人大明法律事務所"}, {"agent_code": "L815", "name": "鈴木　一", "office": "パークス法律事務所"}, {"agent_code": "L816", "name": "飯田　丘", "office": "濱田法律事務所"}, {"agent_code": "L817", "name": "山際　悟郎", "office": "山際悟郎法律事務所"}, {"agent_code": "L818", "name": "服部　文彦", "office": "かえで法律事務所"}, {"agent_code": "L819", "name": "伊藤　彩", "office": "栄枝総合法律事務所"}, {"agent_code": "L820", "name": "谷垣　智之", "office": "谷垣法律事務所"}, {"agent_code": "L821", "name": "加藤　由理", "office": "名古屋伏見法律事務所"}, {"agent_code": "L822", "name": "松宮　慎", "office": "弁護士法人東町法律事務所"}, {"agent_code": "L823", "name": "大島　義徳", "office": "まほら法律事務所"}, {"agent_code": "L824", "name": "一色　奈保", "office": "花園法律事務所"}, {"agent_code": "L825", "name": "富永　和晴", "office": "白楊法律事務所"}, {"agent_code": "L826", "name": "小野寺　友宏", "office": "小野寺友宏法律事務所"}, {"agent_code": "L827", "name": "横田　亮", "office": "弁護士法人横田法律事務所"}, {"agent_code": "L828", "name": "近藤　識之", "office": "近藤法律事務所"}, {"agent_code": "L829", "name": "森川　洋平", "office": "町田総合法律事務所"}, {"agent_code": "L830", "name": "野村　吉太郎", "office": "赤坂野村総合法律事務所"}, {"agent_code": "L831", "name": "森島　崇行", "office": "森島法律事務所"}, {"agent_code": "L832", "name": "新江　学", "office": "弁護士法人新江進法律事務所"}, {"agent_code": "L833", "name": "松波　克英", "office": "旭合同法律事務所"}, {"agent_code": "L834", "name": "辰野　樹市", "office": "ファミリア総合法律事務所"}, {"agent_code": "L835", "name": "中　紀人", "office": "金子・中・森本法律特許事務所"}, {"agent_code": "L836", "name": "小林　信之介", "office": "横濱つきあかり法務事務所"}, {"agent_code": "L837", "name": "荻野　明一", "office": "池袋総合法律事務所"}, {"agent_code": "L838", "name": "藤内　健吉", "office": "心斎橋中央法律事務所"}, {"agent_code": "L839", "name": "沼　宏一郎", "office": "沼法律事務所"}];
+
+// ============================================================
+// 状態
+// ============================================================
+let providerList = [];
+let lawyerList   = [];
+let selfList     = [];
+let xlsWorkbooks  = { provider: null, lawyer: null, self: null };
+let xlsPreviewData = { provider: null, lawyer: null, self: null }; // _previewDataを別管理
+function toPre(type) { return type === 'provider' ? 'p' : type === 'lawyer' ? 'l' : 's'; }
+
+// ============================================================
+// メインタブ切り替え
+// ============================================================
+function switchMain(type) {
+  ['provider','lawyer','self'].forEach(t => {
+    document.getElementById('tab-' + t).classList.toggle('active', t === type);
+    document.getElementById('section-' + t).classList.toggle('active', t === type);
+  });
+}
+
+// ============================================================
+// ユーティリティ
+// ============================================================
+function v(id) { return document.getElementById(id).value.trim(); }
+function copyText(text) {
+  // 1) textarea + execCommand（最も互換性が高い）
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;';
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch(e) {}
+  document.body.removeChild(ta);
+  if (ok) return Promise.resolve();
+  // 2) clipboard API
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text).catch(() => showCopyModal(text));
+  }
+  // 3) 手動コピー用モーダル
+  showCopyModal(text);
+  return Promise.resolve();
+}
+function showCopyModal(text) {
+  let modal = document.getElementById('copy_modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'copy_modal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `<div style="background:#fff;border-radius:12px;padding:24px;max-width:700px;width:90%;max-height:80vh;display:flex;flex-direction:column;">
+      <p style="font-weight:700;margin-bottom:10px;">📋 下のテキストを全選択（Ctrl+A）してコピー（Ctrl+C）してください</p>
+      <textarea id="copy_modal_text" style="flex:1;min-height:300px;font-size:0.8rem;font-family:monospace;border:1px solid #ccc;border-radius:6px;padding:10px;resize:none;" readonly></textarea>
+      <div style="margin-top:12px;text-align:right;">
+        <button onclick="document.getElementById('copy_modal').style.display='none'" style="padding:8px 20px;border:none;background:#1F3864;color:#fff;border-radius:6px;cursor:pointer;font-size:0.9rem;">閉じる</button>
+      </div>
+    </div>`;
+    document.body.appendChild(modal);
+  }
+  const ta = document.getElementById('copy_modal_text');
+  ta.value = text;
+  modal.style.display = 'flex';
+  ta.focus(); ta.select();
+}
+function closeCard(id) { document.getElementById(id).classList.remove('open'); }
+function toggleForm(bodyId) {
+  const body = document.getElementById(bodyId);
+  const arrowId = bodyId.replace('_form_body','_form_arrow');
+  const arrow = document.getElementById(arrowId);
+  const open = body.style.display === 'none';
+  body.style.display = open ? 'block' : 'none';
+  if (arrow) arrow.classList.toggle('open', open);
+}
+function toast(msg, isError=false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = isError ? '#9C0006' : '#276221';
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// 自動修正内容を詳細表示するトースト（修正ありのとき）
+function toastFix(title, fixes) {
+  // 既存のfixトーストがあれば削除
+  const old = document.getElementById('toast_fix');
+  if (old) old.remove();
+
+  const el = document.createElement('div');
+  el.id = 'toast_fix';
+  el.style.cssText = `
+    position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+    background:#e65100; color:#fff; border-radius:10px; padding:14px 20px;
+    font-size:0.84rem; line-height:1.8; z-index:9999;
+    box-shadow:0 4px 18px rgba(0,0,0,0.25); max-width:420px; min-width:260px;
+    animation: fadeInUp .2s ease;
+  `;
+  el.innerHTML = `<div style="font-weight:700;margin-bottom:6px;">🔧 ${title}</div>`
+    + fixes.map(f => `<div style="font-size:0.8rem;">${f}</div>`).join('');
+  document.body.appendChild(el);
+  setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity .4s'; setTimeout(()=>el.remove(), 400); }, 4000);
+}
+
+function normName(s) {
+  return (s || '').replace(/\s/g, '').toLowerCase();
+}
+function normAddr(s) {
+  return (s || '').replace(/\s/g, '').substring(0, 12).toLowerCase();
+}
+
+function isDup(list, name, addr) {
+  const nn = normName(name), na = normAddr(addr);
+  return list.some(r => normName(r.contract_name) === nn && normAddr(r.address) === na);
+}
+function checkDup(list, name, addr, warnId) {
+  const dup = isDup(list, name, addr);
+  document.getElementById(warnId).style.display = dup ? 'block' : 'none';
+  return dup;
+}
+
+function makeTHN(fields, sourceType) {
+  return {
+    thn_id:              'THN-' + Date.now() + '-' + Math.random().toString(36).slice(2,4),
+    source_type:         sourceType,
+    source_label:        sourceType === 'provider' ? 'プロバイダ' : sourceType === 'lawyer' ? '弁護士' : '本人申告',
+    contract_name:       fields.contract_name       || '',
+    contract_name_kana:  fields.contract_name_kana  || '',
+    address:             fields.address             || '',
+    postal_code:         fields.postal_code         || '',
+    phone:               fields.phone               || '',
+    email:               fields.email               || '',
+    ip_address:          fields.ip_address          || '',
+    port:                fields.port                || '',
+    timestamp:           fields.timestamp           || '',
+    provider:            fields.provider            || '',
+    rights_holder:       fields.rights_holder       || '',
+    ipn_id:              fields.ipn_id              || '',
+    lawyer_id:           fields.lawyer_id           || '',
+    google_drive_url:    fields.google_drive_url    || '',
+    memo:                fields.memo                || '',
+    registered_at:       new Date().toISOString().slice(0,19).replace('T',' '),
+    thn_status:          'pending',
+  };
+}
+
+// ============================================================
+// プロバイダ側
+// ============================================================
+function validateProvider() {
+  let ok = true;
+  ['p_contract_name','p_address','p_ip_address','p_port','p_timestamp'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el.value.trim()) { el.classList.add('required-empty'); ok=false; }
+    else el.classList.remove('required-empty');
+  });
+  // プロバイダコード：hiddenに名前がセットされているかで判定
+  const codeEl = document.getElementById('p_ppr_code');
+  const hiddenEl = document.getElementById('p_provider');
+  if (!hiddenEl.value.trim()) { codeEl.classList.add('required-empty'); ok=false; }
+  else codeEl.classList.remove('required-empty');
+  return ok;
+}
+
+function addProvider() {
+  if (!validateProvider()) { toast('氏名・住所・IPアドレス・ポート番号・タイムスタンプ・プロバイダ名は必須です', true); return; }
+  const name = v('p_contract_name'), addr = v('p_address');
+  checkDup(providerList, name, addr, 'p_dup_warning');
+  const _pr = makeTHN({
+    contract_name: name, contract_name_kana: v('p_contract_name_kana'),
+    address: addr, postal_code: v('p_postal_code'), phone: v('p_phone'),
+    email: v('p_email'), ip_address: v('p_ip_address'), port: v('p_port'), timestamp: v('p_timestamp'),
+    provider_code: v('p_ppr_code'), provider: v('p_provider'), rights_holder: v('p_rights_holder'),
+    ipn_id: v('p_ipn_id'), google_drive_url: v('p_google_drive_url'), memo: v('p_memo'),
+  }, 'provider');
+  const _pfixes = _fixOneRecord(_pr, 'provider');
+  providerList.push(_pr);
+  clearProviderForm();
+  renderProviderList();
+  _pfixes.length
+    ? toastFix('リストに追加しました（自動修正あり）', _pfixes)
+    : toast('リストに追加しました');
+}
+
+function clearProviderForm() {
+  ['p_contract_name','p_contract_name_kana','p_address','p_postal_code','p_phone',
+   'p_email','p_ip_address','p_port','p_timestamp','p_rights_holder',
+   'p_ipn_id','p_google_drive_url','p_memo','p_ppr_code','p_provider'].forEach(id => {
+    const el = document.getElementById(id);
+    el.value = ''; el.classList.remove('required-empty');
+  });
+  document.getElementById('p_provider_name_display').textContent = '';
+  document.getElementById('p_provider_select').value = '';
+  document.getElementById('p_dup_warning').style.display = 'none';
+}
+
+function renderProviderList() {
+  const el = document.getElementById('p_list');
+  document.getElementById('p_count').textContent = providerList.length + '件';
+  if (!providerList.length) { el.innerHTML = '<div class="empty-list">まだ登録がありません</div>'; updateProviderPreview(); return; }
+  el.innerHTML = providerList.map((r,i) => `
+    <div class="thn-item">
+      <div class="thn-item-left">
+        <div class="name">${r.contract_name}<span class="badge badge-provider">プロバイダ</span>${r.ipn_id ? `<span class="badge badge-ipn">IPN: ${r.ipn_id}</span>` : '<span class="badge badge-noipn">IPNなし</span>'}</div>
+        <div class="meta">${r.address}${r.rights_holder ? ' ／ '+r.rights_holder : ''}${r.timestamp ? ' ／ '+r.timestamp : ''}</div>
+      </div>
+      <button class="btn-danger" onclick="removeProvider(${i})">削除</button>
+    </div>`).join('');
+  updateProviderPreview();
+}
+
+function removeProvider(i) { providerList.splice(i,1); renderProviderList(); toast('削除しました'); }
+
+function updateProviderPreview() {
+  const hasData = providerList.length > 0;
+  document.getElementById('p_export_row').style.display = hasData ? 'flex' : 'none';
+  document.getElementById('jsonPreview').style.display = hasData ? 'block' : 'none';
+  document.getElementById('p_fix_panel').style.display = hasData ? 'block' : 'none';
+  if (hasData) document.getElementById('jsonPreview').textContent = JSON.stringify(providerList, null, 2);
+}
+
+function exportProvider() {
+  if (!providerList.length) { toast('データがありません', true); return; }
+  const dt = new Date().toISOString().slice(0,10);
+  downloadJSON(providerList, `provider_${dt}.json`);
+  toast('provider_*.json をダウンロードしました');
+}
+
+function copyProvider() {
+  if (!providerList.length) { toast('データがありません', true); return; }
+  copyText(JSON.stringify(providerList, null, 2))
+    .then(() => toast('JSONをコピーしました'));
+}
+
+function showProviderImport() { document.getElementById('p_import_card').classList.add('open'); document.getElementById('p_import_area').value=''; }
+function showProviderExcel()  { _resetExcelCard('provider'); document.getElementById('p_excel_card').classList.add('open'); document.getElementById('p_excel_card').scrollIntoView({behavior:'smooth'}); loadSheetJS(()=>{}); }
+
+function importProviderJSON() {
+  importJSONToList('p_import_area', providerList, 'provider', 'p_import_card', renderProviderList);
+}
+
+// ============================================================
+// 弁護士側
+// ============================================================
+function validateLawyer() {
+  let ok = true;
+  ['l_contract_name','l_address'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el.value.trim()) { el.classList.add('required-empty'); ok=false; }
+    else el.classList.remove('required-empty');
+  });
+  // 弁護士コード：hiddenにlawyer_idがセットされているかで判定
+  const codeEl = document.getElementById('l_agent_code');
+  const hiddenEl = document.getElementById('l_lawyer_id');
+  if (!hiddenEl.value.trim()) { codeEl.classList.add('required-empty'); ok=false; }
+  else codeEl.classList.remove('required-empty');
+  return ok;
+}
+
+function addLawyer() {
+  if (!validateLawyer()) { toast('弁護士コード・氏名・住所は必須です', true); return; }
+  const name = v('l_contract_name'), addr = v('l_address');
+  checkDup(lawyerList, name, addr, 'l_dup_warning');
+  const _lr = makeTHN({
+    contract_name: name, contract_name_kana: v('l_contract_name_kana'),
+    address: addr, postal_code: v('l_postal_code'),
+    ip_address: v('l_ip_address'), timestamp: v('l_timestamp'),
+    provider: v('l_provider'), rights_holder: v('l_rights_holder'),
+    ipn_id: v('l_ipn_id'), lawyer_id: v('l_lawyer_id'),
+    agent_code: v('l_agent_code'),
+    google_drive_url: v('l_google_drive_url'), memo: v('l_memo'),
+  }, 'lawyer');
+  const _lfixes = _fixOneRecord(_lr, 'lawyer');
+  lawyerList.push(_lr);
+  clearLawyerForm();
+  renderLawyerList();
+  _lfixes.length
+    ? toastFix('リストに追加しました（自動修正あり）', _lfixes)
+    : toast('リストに追加しました');
+}
+
+function clearLawyerForm() {
+  ['l_contract_name','l_contract_name_kana','l_postal_code','l_address',
+   'l_ip_address','l_timestamp','l_provider','l_rights_holder',
+   'l_ipn_id','l_google_drive_url','l_memo','l_agent_code','l_lawyer_id'].forEach(id => {
+    const el = document.getElementById(id);
+    el.value = ''; el.classList.remove('required-empty');
+  });
+  document.getElementById('l_agent_name_display').textContent = '';
+  document.getElementById('l_dup_warning').style.display = 'none';
+}
+
+function renderLawyerList() {
+  const el = document.getElementById('l_list');
+  document.getElementById('l_count').textContent = lawyerList.length + '件';
+  if (!lawyerList.length) { el.innerHTML = '<div class="empty-list">まだ登録がありません</div>'; updateLawyerPreview(); return; }
+  el.innerHTML = lawyerList.map((r,i) => `
+    <div class="thn-item">
+      <div class="thn-item-left">
+        <div class="name">${r.contract_name}<span class="badge badge-lawyer">弁護士案件</span>${r.lawyer_id ? `<span class="badge" style="background:#ede7f6;color:#4527a0;">ID: ${r.lawyer_id}</span>` : ''}</div>
+        <div class="meta">${r.address}${r.rights_holder ? ' ／ '+r.rights_holder : ''}${r.memo ? ' ／ '+r.memo : ''}</div>
+      </div>
+      <button class="btn-danger" onclick="removeLawyer(${i})">削除</button>
+    </div>`).join('');
+  updateLawyerPreview();
+}
+
+function removeLawyer(i) { lawyerList.splice(i,1); renderLawyerList(); toast('削除しました'); }
+
+function updateLawyerPreview() {
+  const hasData = lawyerList.length > 0;
+  document.getElementById('l_export_row').style.display = hasData ? 'flex' : 'none';
+  document.getElementById('lawyerJsonPreview').style.display = hasData ? 'block' : 'none';
+  document.getElementById('l_fix_panel').style.display = hasData ? 'block' : 'none';
+  if (hasData) document.getElementById('lawyerJsonPreview').textContent = JSON.stringify(lawyerList, null, 2);
+}
+
+function exportLawyer() {
+  if (!lawyerList.length) { toast('データがありません', true); return; }
+  const dt = new Date().toISOString().slice(0,10);
+  downloadJSON(lawyerList, `lawyer_${dt}.json`);
+  toast('lawyer_*.json をダウンロードしました');
+}
+
+function copyLawyer() {
+  if (!lawyerList.length) { toast('データがありません', true); return; }
+  copyText(JSON.stringify(lawyerList, null, 2))
+    .then(() => toast('JSONをコピーしました'));
+}
+
+function showLawyerImport() { document.getElementById('l_import_card').classList.add('open'); document.getElementById('l_import_area').value=''; }
+function showLawyerExcel()  { _resetExcelCard('lawyer'); document.getElementById('l_excel_card').classList.add('open'); document.getElementById('l_excel_card').scrollIntoView({behavior:'smooth'}); loadSheetJS(()=>{}); }
+
+function importLawyerJSON() {
+  importJSONToList('l_import_area', lawyerList, 'lawyer', 'l_import_card', renderLawyerList);
+}
+
+// ============================================================
+// 共通: JSONインポート
+// ============================================================
+function importJSONToList(areaId, list, sourceType, cardId, renderFn) {
+  const raw = document.getElementById(areaId).value.trim();
+  if (!raw) { toast('JSONを入力してください', true); return; }
+  try {
+    let data = JSON.parse(raw);
+    if (!Array.isArray(data)) data = [data];
+    let added = 0, skipped = 0;
+    data.forEach(r => {
+      const name = r.contract_name || r.user_name || '';
+      const addr = r.address || '';
+      if (isDup(list, name, addr)) { skipped++; return; }
+      list.push(makeTHN({
+        contract_name: name,
+        contract_name_kana: r.contract_name_kana || r.user_name_kana || '',
+        address: addr, postal_code: r.postal_code || '',
+        phone: r.phone || '', email: r.email || '',
+        ip_address: r.ip_address || '', port: r.port || '',
+        timestamp: r.timestamp || '', provider: r.provider || '',
+        rights_holder: r.rights_holder || '', ipn_id: r.ipn_id || '',
+        lawyer_id: r.lawyer_id || '', google_drive_url: r.google_drive_url || '',
+        memo: r.memo || '',
+      }, r.source_type || sourceType));
+      added++;
+    });
+    closeCard(cardId);
+    renderFn();
+    const msg = skipped > 0
+      ? `${added}件インポートしました（${skipped}件は重複のためスキップ）`
+      : `${added}件インポートしました`;
+    toast(msg);
+  } catch(e) {
+    toast('JSONの形式が正しくありません', true);
+  }
+}
+
+// ============================================================
+// 共通: ダウンロード
+// ============================================================
+function downloadJSON(data, filename) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ============================================================
+// Excel インポート（共通）
+// ============================================================
+const XLS_MAP = {
+  'contract_name':'contract_name', 'user_name':'contract_name',
+  'contract_name_kana':'contract_name_kana', 'user_name_kana':'contract_name_kana',
+  'address':'address', 'postal_code':'postal_code', 'phone':'phone', 'email':'email',
+  'ip_address':'ip_address', 'port':'port', 'timestamp':'timestamp',
+  'provider':'provider', 'rights_holder':'rights_holder', 'rights_holder_new':'rights_holder',
+  'ipn_id':'ipn_id', 'lawyer_id':'lawyer_id',
+  'google_drive_url':'google_drive_url', 'memo':'memo', 'pdf_filename':'memo',
+};
+
+function _resetExcelCard(type) {
+  const pre = toPre(type);
+  xlsWorkbooks[type] = null;
+  xlsPreviewData[type] = null;
+  document.getElementById(pre+'_sheet_area').style.display = 'none';
+  document.getElementById(pre+'_import_btn').style.display = 'none';
+  document.getElementById(pre+'_file_input').value = '';
+  const wrap = document.getElementById(pre+'_preview_table_wrap');
+  if (wrap) wrap.innerHTML = '';
+  const rc = document.getElementById(pre+'_row_count');
+  if (rc) rc.textContent = '';
+}
+
+function loadSheetJS(cb) {
+  if (window.XLSX) { cb(); return; }
+  const s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+  s.onload = cb; document.head.appendChild(s);
+}
+
+function handleDrop(e, type) {
+  e.preventDefault();
+  document.getElementById(toPre(type)+'_drop_zone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file, type);
+}
+
+function handleFile(file, type) {
+  if (!file) return;
+  const pre = toPre(type);
+  loadSheetJS(() => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const wb = XLSX.read(e.target.result, { type:'array', cellDates:true });
+        xlsWorkbooks[type] = wb;
+        const sel = document.getElementById(pre+'_sheet_select');
+        sel.innerHTML = wb.SheetNames.map(n => `<option value="${n}">${n}</option>`).join('');
+        document.getElementById(pre+'_sheet_area').style.display = 'block';
+        previewSheet(type);
+      } catch(err) {
+        toast('読み込みに失敗しました: ' + err.message, true);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function previewSheet(type) {
+  const pre = toPre(type);
+  const wb = xlsWorkbooks[type];
+  if (!wb) return;
+  const sheetName = document.getElementById(pre+'_sheet_select').value;
+  const ws = wb.Sheets[sheetName];
+  const data = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:false });
+  if (!data.length) return;
+  const headers = data[0];
+  const rows = data.slice(1).filter(r => r.some(c => c !== ''));
+
+  const showCols = ['contract_name','address','ipn_id','lawyer_id','rights_holder','timestamp'];
+  const colIdxs = showCols.map(c => headers.findIndex(h => h && h.toString().toLowerCase() === c));
+
+  document.getElementById(pre+'_preview_table_wrap').innerHTML = `
+    <table><tr>${showCols.map(c=>`<th>${c}</th>`).join('')}</tr>
+    ${rows.slice(0,5).map((row,ri)=>`<tr style="background:${ri%2?'#f8f9fb':'white'}">${colIdxs.map(ci=>`<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${ci>=0?(row[ci]||''):''}</td>`).join('')}</tr>`).join('')}
+    </table>`;
+  document.getElementById(pre+'_row_count').textContent = `全 ${rows.length} 件（空行除く）`;
+  document.getElementById(pre+'_import_btn').style.display = 'inline-block';
+
+  xlsPreviewData[type] = { sheetName, headers, rows }; // wb本体ではなく別オブジェクトに保存
+}
+
+function importExcel(type) {
+  const pre = toPre(type);
+  const pd = xlsPreviewData[type];
+  if (!pd) { toast('先にファイルを選択してください', true); return; }
+  const { headers, rows } = pd;
+  const list = type === 'provider' ? providerList : type === 'lawyer' ? lawyerList : selfList;
+  const renderFn = type === 'provider' ? renderProviderList : type === 'lawyer' ? renderLawyerList : renderSelfList;
+
+  let added=0, skipped=0, dupSkipped=0;
+  const stats = { rh:0, ts:0, ip:0, ipn:0, name:0 };
+  const fixedSet = new Set(), warnSet = new Set();
+
+  rows.forEach(row => {
+    const r = {};
+    headers.forEach((h,i) => {
+      const key = (h||'').toString().trim().toLowerCase().replace(/\s+/g,'_');
+      const mapped = XLS_MAP[key];
+      if (!mapped) return;
+      let val = row[i];
+      if (val === null || val === undefined) val = '';
+      if (val instanceof Date) {
+        const pad = n => String(n).padStart(2,'0');
+        val = `${val.getFullYear()}/${pad(val.getMonth()+1)}/${pad(val.getDate())} ${pad(val.getHours())}:${pad(val.getMinutes())}:${pad(val.getSeconds())}`;
+      }
+      val = String(val).trim();
+      if (mapped === 'contract_name' && r.contract_name) return;
+      if (mapped === 'contract_name_kana' && r.contract_name_kana) return;
+      if (key === 'pdf_filename' && val) { r.memo = (r.memo ? r.memo+' / ' : '') + val; return; }
+      r[mapped] = val;
+    });
+    if (!r.contract_name && !r.address) { skipped++; return; }
+    if (isDup(list, r.contract_name || '', r.address || '')) { dupSkipped++; return; }
+    const thn = makeTHN(r, type);
+    // 自動修正（集計用に個別チェック）
+    const idx = added;
+    if (_isPersonName((thn.rights_holder||'').trim())) {
+      _appendMemo(thn, `修正: rights_holder "${thn.rights_holder}" は人名のため空に変更`);
+      thn.rights_holder = ''; stats.rh++; fixedSet.add(idx);
+    }
+    if (thn.timestamp) {
+      const norm = _normalizeTS(thn.timestamp);
+      if (norm === null) { _appendMemo(thn, `修正: timestamp "${thn.timestamp}" は形式不正のため空に変更`); thn.timestamp=''; stats.ts++; warnSet.add(idx); }
+      else if (norm !== thn.timestamp.trim()) { _appendMemo(thn, `修正: timestamp "${thn.timestamp}" → "${norm}"`); thn.timestamp=norm; stats.ts++; fixedSet.add(idx); }
+    }
+    if (thn.ip_address) {
+      const cleaned = thn.ip_address.replace(/\s/g,'');
+      if (cleaned !== thn.ip_address) { thn.ip_address=cleaned; stats.ip++; fixedSet.add(idx); }
+    }
+    if (thn.ipn_id && /^\d+$/.test(thn.ipn_id.trim())) {
+      _appendMemo(thn, `修正: ipn_id "${thn.ipn_id}" は数字のみのため空に変更`);
+      thn.ipn_id=''; stats.ipn++; fixedSet.add(idx);
+    }
+    if (!thn.contract_name || !thn.contract_name.trim()) {
+      const corp = _corpFromAddr(thn.address||'');
+      if (corp) { _appendMemo(thn, `修正: contract_name を address から補完 → "${corp}"`); thn.contract_name=corp; stats.name++; fixedSet.add(idx); }
+      else warnSet.add(idx);
+    }
+    list.push(thn);
+    added++;
+  });
+
+  // リセット
+  closeCard(pre+'_excel_card');
+  xlsWorkbooks[type]   = null;
+  xlsPreviewData[type] = null;
+  document.getElementById(pre+'_sheet_area').style.display = 'none';
+  document.getElementById(pre+'_import_btn').style.display = 'none';
+  document.getElementById(pre+'_file_input').value = '';
+  renderFn();
+
+  // レポート表示
+  const claudeCount = warnSet.size;
+  const fixedOnlyCount = [...fixedSet].filter(i => !warnSet.has(i)).length;
+  const cleanCount = added - fixedOnlyCount - claudeCount;
+
+  const summaryEl = document.getElementById(pre+'_fix_summary');
+  summaryEl.innerHTML = _buildReportHTML({
+    title: 'Excelインポート結果',
+    added, cleanCount, fixedOnlyCount, claudeCount,
+    dupSkipped, skipped, stats
+  });
+  summaryEl.style.cssText = 'display:block;padding:0;border:none;background:none;white-space:normal;';
+
+  // fix_summaryまでスクロール
+  setTimeout(() => summaryEl.scrollIntoView({ behavior:'smooth', block:'start' }), 100);
+  toast(`${added}件取り込みました`);
+}
+
+// ============================================================
+// ガイドタブ切り替え
+// ============================================================
+function showGuide(pre, tab) {
+  ['beginner','tech'].forEach(t => {
+    document.getElementById(pre+'_guide_'+t).style.display = t === tab ? 'block' : 'none';
+    const btn = document.getElementById(pre+'_guide_tab_'+t);
+    btn.classList.toggle('active', t === tab);
+  });
+}
+
+// ============================================================
+// 自動修正（fix_thn_json.py 相当をJS実装）
+// ============================================================
+const _CORP_KW = ['株式会社','有限会社','合同会社','合資会社','合名会社',
+  '一般社団法人','一般財団法人','公益社団法人','公益財団法人',
+  '特定非営利活動法人','NPO法人','医療法人','社会福祉法人','学校法人',
+  'LLC','Inc','Corp','Ltd','Co.'];
+const _IP_RE   = /^\d{1,3}(\.\d{1,3}){3}$/;
+const _TS_PATS = [
+  /^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2}):(\d{1,2})$/,
+  /^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{1,2}):(\d{1,2})$/,
+  /^(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{1,2})$/,
+  /^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{1,2})$/,
+  /^(\d{4})(\d{2})(\d{2})\s+(\d{1,2}):(\d{1,2}):(\d{1,2})$/,
+];
+
+// 1件だけ自動修正（addProvider/addLawyer/addSelf から呼ぶ）
+// 戻り値: 修正内容の文字列配列（空なら修正なし）
+function _fixOneRecord(r, type) {
+  const fixes = [];
+  // rights_holder 人名
+  if (_isPersonName((r.rights_holder||'').trim())) {
+    fixes.push(`🔧 rights_holder「${r.rights_holder}」は人名のため削除`);
+    _appendMemo(r, `修正: rights_holder "${r.rights_holder}" は人名のため空に変更`);
+    r.rights_holder = '';
+  }
+  // timestamp 正規化
+  if (r.timestamp) {
+    const norm = _normalizeTS(r.timestamp);
+    if (norm === null) {
+      fixes.push(`⚠️ timestamp「${r.timestamp}」は形式不正のため削除`);
+      _appendMemo(r, `修正: timestamp "${r.timestamp}" は形式不正のため空に変更`);
+      r.timestamp = '';
+    } else if (norm !== r.timestamp.trim()) {
+      fixes.push(`🔧 timestamp「${r.timestamp}」→「${norm}」`);
+      _appendMemo(r, `修正: timestamp "${r.timestamp}" → "${norm}"`);
+      r.timestamp = norm;
+    }
+  }
+  // ip_address スペース除去
+  if (r.ip_address) {
+    const cleaned = r.ip_address.replace(/\s/g,'');
+    if (cleaned !== r.ip_address) {
+      fixes.push(`🔧 ip_address のスペースを除去`);
+      r.ip_address = cleaned;
+    }
+  }
+  // ipn_id 数字のみ
+  if (r.ipn_id && /^\d+$/.test(r.ipn_id.trim())) {
+    fixes.push(`⚠️ ipn_id「${r.ipn_id}」は数字のみのため削除`);
+    _appendMemo(r, `修正: ipn_id "${r.ipn_id}" は数字のみのため空に変更`);
+    r.ipn_id = '';
+  }
+  // contract_name 空 → address から補完
+  if (!r.contract_name || !r.contract_name.trim()) {
+    const corp = _corpFromAddr(r.address||'');
+    if (corp) {
+      fixes.push(`🔧 contract_name を住所から補完→「${corp}」`);
+      _appendMemo(r, `修正: contract_name を address から補完 → "${corp}"`);
+      r.contract_name = corp;
+    }
+  }
+  return fixes;
+}
+
+function _isPersonName(s) {
+  if (!s || s.length < 2 || s.length > 10) return false;
+  if (_CORP_KW.some(k => s.includes(k))) return false;
+  return /^[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]+$/.test(s.replace(/\s/g,''));
+}
+
+function _normalizeTS(ts) {
+  if (!ts) return '';
+  const t = ts.trim();
+  for (const pat of _TS_PATS) {
+    const m = t.match(pat);
+    if (m) {
+      const [,y,mo,d,h,mi,s='00'] = m;
+      return `${y}/${mo.padStart(2,'0')}/${d.padStart(2,'0')} ${h.padStart(2,'0')}:${mi.padStart(2,'0')}:${s.padStart(2,'0')}`;
+    }
+  }
+  return null; // 変換不能
+}
+
+function _corpFromAddr(addr) {
+  if (!addr) return '';
+  for (const kw of _CORP_KW) {
+    const i = addr.indexOf(kw);
+    if (i < 0) continue;
+    if (['株式会社','有限会社','合同会社','合資会社','合名会社'].includes(kw)) {
+      const after = addr.slice(i + kw.length).split(/[\s　（(]/)[0];
+      return kw + after;
+    } else {
+      const before = addr.slice(0, i).split(/[\s　]/).pop();
+      return before + kw;
+    }
+  }
+  return '';
+}
+
+function _appendMemo(r, msg) {
+  r.memo = r.memo ? r.memo + '；' + msg : msg;
+}
+
+function _buildReportHTML(o) {
+  const { title, added, cleanCount, fixedOnlyCount, claudeCount, dupSkipped=0, skipped=0, stats, beforeCount } = o;
+  const isWarn = claudeCount > 0;
+  const details = [
+    stats.rh      ? ['rights_holder 人名修正', stats.rh] : null,
+    stats.ts      ? ['timestamp 正規化', stats.ts] : null,
+    stats.ip      ? ['ip_address スペース除去', stats.ip] : null,
+    stats.ipn     ? ['ipn_id 数字のみ修正', stats.ipn] : null,
+    stats.name    ? ['contract_name 補完', stats.name] : null,
+    stats.dup     ? ['重複除去', stats.dup] : null,
+    stats.ip_warn ? ['ip_address 要確認', stats.ip_warn] : null,
+    stats.addr    ? ['address 短すぎ', stats.addr] : null,
+  ].filter(Boolean);
+
+  let html = `<div class="fix-report ${isWarn ? 'warn' : 'clean'}">`;
+  html += `<div class="fix-report-title">${isWarn ? '⚠️' : '✅'} ${title}</div>`;
+
+  // stat cards
+  html += `<div class="stat-row">`;
+  html += `<div class="stat-card stat-total"><div class="stat-num">${added}</div><div class="stat-label">取り込み</div></div>`;
+  html += `<div class="stat-card stat-ok"><div class="stat-num">${cleanCount}</div><div class="stat-label">問題なし</div></div>`;
+  html += `<div class="stat-card stat-fix"><div class="stat-num">${fixedOnlyCount}</div><div class="stat-label">自動修正</div></div>`;
+  html += `<div class="stat-card stat-warn"><div class="stat-num">${claudeCount}</div><div class="stat-label">要確認</div></div>`;
+  if (dupSkipped) html += `<div class="stat-card stat-skip"><div class="stat-num">${dupSkipped}</div><div class="stat-label">重複スキップ</div></div>`;
+  if (skipped) html += `<div class="stat-card stat-skip"><div class="stat-num">${skipped}</div><div class="stat-label">空行スキップ</div></div>`;
+  html += `</div>`;
+
+  // details
+  if (details.length) {
+    html += `<div class="detail-section"><div style="font-weight:700;margin-bottom:4px;">修正内訳</div>`;
+    details.forEach(([label, count]) => {
+      html += `<div class="detail-item"><span>${label}</span><span style="font-weight:700;">${count}件</span></div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (claudeCount > 0) {
+    html += `<div class="hint">💡 「修正プロンプトをコピー」でClaudeに渡してください</div>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+function autoFix(type) {
+  const list = type === 'provider' ? providerList : type === 'lawyer' ? lawyerList : selfList;
+  if (!list.length) { toast('データがありません', true); return; }
+
+  const stats = { rh:0, ts:0, ip:0, ip_warn:0, ipn:0, addr:0, name:0, dup:0 };
+  // レコード単位のカテゴリ集計用セット
+  const fixedIds  = new Set(); // 自動修正できた
+  const warnIds   = new Set(); // Claude要確認（自動修正不能）
+
+  // 各レコード修正
+  list.forEach((r, idx) => {
+    // rights_holder 人名
+    if (_isPersonName((r.rights_holder||'').trim())) {
+      _appendMemo(r, `修正: rights_holder "${r.rights_holder}" は人名の疑いがあるため空に変更`);
+      r.rights_holder = ''; stats.rh++; fixedIds.add(idx);
+    }
+    // timestamp 正規化
+    if (r.timestamp) {
+      const norm = _normalizeTS(r.timestamp);
+      if (norm === null) {
+        _appendMemo(r, `修正: timestamp "${r.timestamp}" は形式不正のため空に変更`);
+        r.timestamp = ''; stats.ts++; warnIds.add(idx);
+      } else if (norm !== r.timestamp.trim()) {
+        _appendMemo(r, `修正: timestamp "${r.timestamp}" → "${norm}"`);
+        r.timestamp = norm; stats.ts++; fixedIds.add(idx);
+      }
+    }
+    // ip_address スペース除去・チェック
+    if (r.ip_address) {
+      const cleaned = r.ip_address.replace(/\s/g,'');
+      if (cleaned !== r.ip_address) { r.ip_address = cleaned; stats.ip++; fixedIds.add(idx); }
+      if (!_IP_RE.test(cleaned)) {
+        _appendMemo(r, 'IP要確認: ip_address の形式が不正');
+        stats.ip_warn++; warnIds.add(idx);
+      }
+    } else if (type === 'provider') {
+      _appendMemo(r, 'IP要確認: ip_address が空');
+      stats.ip_warn++; warnIds.add(idx);
+    }
+    // ipn_id 数字のみ
+    if (r.ipn_id && /^\d+$/.test(r.ipn_id.trim())) {
+      _appendMemo(r, `修正: ipn_id "${r.ipn_id}" は数字のみのため空に変更`);
+      r.ipn_id = ''; stats.ipn++; fixedIds.add(idx);
+    }
+    // address 短すぎ
+    if (r.address && r.address.trim().length < 10) {
+      _appendMemo(r, '住所要確認: address が10文字未満');
+      stats.addr++; warnIds.add(idx);
+    }
+    // contract_name 空 → 補完試行
+    if (!r.contract_name || !r.contract_name.trim()) {
+      const corp = _corpFromAddr(r.address||'');
+      if (corp) {
+        _appendMemo(r, `修正: contract_name を address から補完 → "${corp}"`);
+        r.contract_name = corp; stats.name++; fixedIds.add(idx);
+      } else {
+        warnIds.add(idx);
+      }
+    }
+  });
+
+  // 重複除去（ip+timestamp）
+  const seen = new Set();
+  const before = list.length;
+  const deduped = list.filter((r, idx) => {
+    const ip = r.ip_address||'', ts = r.timestamp||'';
+    if (!ip || !ts) return true;
+    const key = ip+'|'+ts;
+    if (seen.has(key)) { stats.dup++; return false; }
+    seen.add(key); return true;
+  });
+
+  // リストを更新
+  if (type === 'provider')    { providerList.length=0; deduped.forEach(r=>providerList.push(r)); }
+  else if (type === 'lawyer') { lawyerList.length=0;   deduped.forEach(r=>lawyerList.push(r)); }
+  else                        { selfList.length=0;      deduped.forEach(r=>selfList.push(r)); }
+
+  // 件数集計（重複除去後の件数ベース）
+  const afterCount  = deduped.length;
+  const claudeCount = [...warnIds].filter(i => i < deduped.length).length;
+  // fixedIdsからwarnIdsを除く（両方に入ってるレコードはwarn扱い）
+  const fixedOnlyCount = [...fixedIds].filter(i => !warnIds.has(i) && i < deduped.length).length;
+  const cleanCount  = afterCount - fixedOnlyCount - claudeCount;
+
+  // サマリー表示
+  const pre = type==='provider' ? 'p' : type==='lawyer' ? 'l' : 's';
+  const summaryEl = document.getElementById(pre+'_fix_summary');
+
+  summaryEl.innerHTML = _buildReportHTML({
+    title: '自動修正レポート',
+    added: afterCount, cleanCount, fixedOnlyCount, claudeCount,
+    dupSkipped: stats.dup, skipped: 0, stats,
+    beforeCount: before
+  });
+  summaryEl.style.cssText = 'display:block;padding:0;border:none;background:none;white-space:normal;';
+
+  // リスト再描画
+  if (type === 'provider') renderProviderList();
+  else if (type === 'lawyer') renderLawyerList();
+  else renderSelfList();
+
+  toast(claudeCount > 0
+    ? `自動修正完了 ⚠️ Claude確認${claudeCount}件あり`
+    : `自動修正完了 ✅ 全件問題なし`);
+}
+
+// ============================================================
+// Claude修正プロンプト
+// ============================================================
+function buildFixPrompt(type) {
+  const list = type === 'provider' ? providerList : type === 'lawyer' ? lawyerList : selfList;
+  const json = JSON.stringify(list, null, 2);
+
+  return `\u4ee5\u4e0b\u306f\u767b\u9332\u30d5\u30a9\u30fc\u30e0\u304b\u3089\u51fa\u529b\u3055\u308c\u305fJSON\u3067\u3059\u3002\u30c7\u30fc\u30bf\u306e\u78ba\u8a8d\u30fb\u4fee\u6b63\u3092\u304a\u9858\u3044\u3057\u307e\u3059\u3002
+
+\u3010\u3088\u304f\u3042\u308b\u554f\u984c\u3068\u4fee\u6b63\u30eb\u30fc\u30eb\u3011
+- rights_holder \u306b\u4eba\u540d\u304c\u5165\u3063\u3066\u3044\u308b \u2192 \u6a29\u5229\u8005\u306f\u4f1a\u793e\u540d\u304c\u6b63\u3057\u3044\u3002\u4eba\u540d\u306e\u5834\u5408\u306f "" \u306b\u4fee\u6b63
+- ipn_id \u304c\u6570\u5b57\u306e\u307f\u30fb\u660e\u3089\u304b\u306b\u4e0d\u6b63\u306a\u5024 \u2192 "" \u306b\u4fee\u6b63
+- contract_name \u304c\u7a7a \u2192 address \u304b\u3089\u5224\u65ad\u3067\u304d\u308b\u5834\u5408\u306f\u88dc\u5b8c\u3001\u3067\u304d\u306a\u3051\u308c\u3070\u305d\u306e\u307e\u307e
+- timestamp \u306e\u5f62\u5f0f\u304c "YYYY/MM/DD HH:mm:ss" \u4ee5\u5916 \u2192 \u6b63\u3057\u3044\u5f62\u5f0f\u306b\u5909\u63db
+- address \u304c\u6975\u7aef\u306b\u77ed\u3044\uff0810\u6587\u5b57\u672a\u6e80\uff09\u2192 memo\u306b\u300c\u4f4f\u6240\u8981\u78ba\u8a8d\u300d\u3068\u8ffd\u8a18
+- \u540c\u4e00 ip_address + timestamp \u306e\u91cd\u8907\u884c \u2192 \u91cd\u8907\u3092\u9664\u53bb\u3057\u30661\u4ef6\u306b\u3059\u308b
+
+\u3010\u4fee\u6b63\u5f8c\u306e\u51fa\u529b\u30eb\u30fc\u30eb\u3011
+- \u4fee\u6b63\u6e08\u307f\u306eJSON\u3092\u5fc5\u305a\u30b3\u30fc\u30c9\u30d6\u30ed\u30c3\u30af\uff08\`\`\`json \uff5e \`\`\`\uff09\u3067\u51fa\u529b\u3057\u3066\u304f\u3060\u3055\u3044
+- \u914d\u5217\u5f62\u5f0f\u3067\u8fd4\u3057\u3066\u304f\u3060\u3055\u3044\u3002\u4ef6\u6570\u3092\u6e1b\u3089\u3055\u306a\u3044\u3067\u304f\u3060\u3055\u3044
+- thn_id\u30fbregistered_at\u30fbthn_status\u30fbsource_type \u306f\u5909\u66f4\u3057\u306a\u3044\u3067\u304f\u3060\u3055\u3044
+- \u4fee\u6b63\u3057\u305f\u9805\u76ee\u306fmemo\u306b\u300c\u4fee\u6b63: \uff08\u7406\u7531\uff09\u300d\u3068\u8ffd\u8a18\u3057\u3066\u304f\u3060\u3055\u3044
+- \u4fee\u6b63\u7b87\u6240\u304c\u306a\u3044\u5834\u5408\u3082\u5143\u306eJSON\u3092\u305d\u306e\u307e\u307e\u30b3\u30fc\u30c9\u30d6\u30ed\u30c3\u30af\u3067\u51fa\u529b\u3057\u3066\u304f\u3060\u3055\u3044
+
+\u3010\u5bfe\u8c61JSON\uff08${list.length}\u4ef6\uff09\u3011
+${json}`;
+}
+
+function copyFixPrompt(type) {
+  const list = type === 'provider' ? providerList : type === 'lawyer' ? lawyerList : selfList;
+  if (!list.length) { toast('\u30c7\u30fc\u30bf\u304c\u3042\u308a\u307e\u305b\u3093', true); return; }
+  const prompt = buildFixPrompt(type);
+  const previewId = (type === 'provider' ? 'p' : type === 'lawyer' ? 'l' : 's') + '_fix_preview';
+  const previewEl = document.getElementById(previewId);
+  previewEl.textContent = '\u30d7\u30ed\u30f3\u30d7\u30c8\u3092\u30b3\u30d4\u30fc\u3057\u307e\u3057\u305f\u3002Claude\u306b\u8cbc\u308a\u4ed8\u3051\u3066\u304f\u3060\u3055\u3044\u3002';
+  previewEl.style.display = 'block';
+  copyText(prompt)
+    .then(() => toast('\u4fee\u6b63\u30d7\u30ed\u30f3\u30d7\u30c8\u3092\u30b3\u30d4\u30fc\u3057\u307e\u3057\u305f'));
+}
+
+function exportFixJSON(type) {
+  const list = type === 'provider' ? providerList : type === 'lawyer' ? lawyerList : selfList;
+  if (!list.length) { toast('\u30c7\u30fc\u30bf\u304c\u3042\u308a\u307e\u305b\u3093', true); return; }
+  const dt = new Date().toISOString().slice(0,10);
+  downloadJSON(list, `${type}_\u8981\u4fee\u6b63_${dt}.json`);
+  toast('\u8981\u4fee\u6b63JSON\u3092\u4fdd\u5b58\u3057\u307e\u3057\u305f');
+}
+
+// ============================================================
+// \u672c\u4eba\u7533\u544a\u5074
+// ============================================================
+
+// ============================================================
+// 本人申告側
+// ============================================================
+function validateSelf() {
+  let ok = true;
+  ['s_contract_name','s_address'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el.value.trim()) { el.classList.add('required-empty'); ok=false; }
+    else el.classList.remove('required-empty');
+  });
+  return ok;
+}
+
+function addSelf() {
+  if (!validateSelf()) { toast('\u6c0f\u540d\u3068\u4f4f\u6240\u306f\u5fc5\u9808\u3067\u3059', true); return; }
+  const name = v('s_contract_name'), addr = v('s_address');
+  checkDup(selfList, name, addr, 's_dup_warning');
+  const _sr = makeTHN({
+    contract_name: name, contract_name_kana: v('s_contract_name_kana'),
+    address: addr, postal_code: v('s_postal_code'), phone: v('s_phone'),
+    email: v('s_email'), ip_address: v('s_ip_address'), timestamp: v('s_timestamp'),
+    rights_holder: v('s_rights_holder'), ipn_id: v('s_ipn_id'),
+    google_drive_url: v('s_google_drive_url'), memo: v('s_memo'),
+  }, 'self');
+  const _sfixes = _fixOneRecord(_sr, 'self');
+  selfList.push(_sr);
+  clearSelfForm();
+  renderSelfList();
+  _sfixes.length
+    ? toastFix('\u30ea\u30b9\u30c8\u306b\u8ffd\u52a0\u3057\u307e\u3057\u305f\uff08\u81ea\u52d5\u4fee\u6b63\u3042\u308a\uff09', _sfixes)
+    : toast('\u30ea\u30b9\u30c8\u306b\u8ffd\u52a0\u3057\u307e\u3057\u305f');
+}
+
+function clearSelfForm() {
+  ['s_contract_name','s_contract_name_kana','s_postal_code','s_address',
+   's_ipn_id','s_ip_address','s_timestamp','s_rights_holder',
+   's_phone','s_email','s_google_drive_url','s_memo'].forEach(id => {
+    const el = document.getElementById(id);
+    el.value = ''; el.classList.remove('required-empty');
+  });
+  document.getElementById('s_dup_warning').style.display = 'none';
+}
+
+function renderSelfList() {
+  const el = document.getElementById('s_list');
+  document.getElementById('s_count').textContent = selfList.length + '\u4ef6';
+  if (!selfList.length) { el.innerHTML = '<div class="empty-list">\u307e\u3060\u767b\u9332\u304c\u3042\u308a\u307e\u305b\u3093</div>'; updateSelfPreview(); return; }
+  el.innerHTML = selfList.map((r,i) => `
+    <div class="thn-item">
+      <div class="thn-item-left">
+        <div class="name">${r.contract_name}<span class="badge" style="background:#e8f5e9;color:#1b5e20;">\u672c\u4eba\u7533\u544a</span>${r.ipn_id ? `<span class="badge badge-ipn">IPN: ${r.ipn_id}</span>` : '<span class="badge badge-noipn">IPN\u306a\u3057</span>'}</div>
+        <div class="meta">${r.address}${r.rights_holder ? ' \uff0f '+r.rights_holder : ''}${r.timestamp ? ' \uff0f '+r.timestamp : ''}</div>
+      </div>
+      <button class="btn-danger" onclick="removeSelf(${i})">\u524a\u9664</button>
+    </div>`).join('');
+  updateSelfPreview();
+}
+
+function removeSelf(i) { selfList.splice(i,1); renderSelfList(); toast('\u524a\u9664\u3057\u307e\u3057\u305f'); }
+
+function updateSelfPreview() {
+  const hasData = selfList.length > 0;
+  document.getElementById('s_export_row').style.display = hasData ? 'flex' : 'none';
+  document.getElementById('selfJsonPreview').style.display = hasData ? 'block' : 'none';
+  document.getElementById('s_fix_panel').style.display = hasData ? 'block' : 'none';
+  if (hasData) document.getElementById('selfJsonPreview').textContent = JSON.stringify(selfList, null, 2);
+}
+
+function exportSelf() {
+  if (!selfList.length) { toast('\u30c7\u30fc\u30bf\u304c\u3042\u308a\u307e\u305b\u3093', true); return; }
+  const dt = new Date().toISOString().slice(0,10);
+  downloadJSON(selfList, `self_${dt}.json`);
+  toast('self_*.json \u3092\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9\u3057\u307e\u3057\u305f');
+}
+
+function copySelf() {
+  if (!selfList.length) { toast('\u30c7\u30fc\u30bf\u304c\u3042\u308a\u307e\u305b\u3093', true); return; }
+  copyText(JSON.stringify(selfList, null, 2))
+    .then(() => toast('JSON\u3092\u30b3\u30d4\u30fc\u3057\u307e\u3057\u305f'));
+}
+
+function showSelfImport() { document.getElementById('s_import_card').classList.add('open'); document.getElementById('s_import_area').value=''; }
+function showSelfExcel()  { _resetExcelCard('self'); document.getElementById('s_excel_card').classList.add('open'); document.getElementById('s_excel_card').scrollIntoView({behavior:'smooth'}); loadSheetJS(()=>{}); }
+
+function importSelfJSON() {
+  importJSONToList('s_import_area', selfList, 'self', 's_import_card', renderSelfList);
+}
+
+// ============================================================
+// \u30d7\u30ed\u30d0\u30a4\u30c0\u30b3\u30fc\u30c9\u5165\u529b \u2192 \u540d\u524d\u3092\u30ea\u30a2\u30eb\u30bf\u30a4\u30e0\u8868\u793a \uff0b \u30d7\u30eb\u30c0\u30a6\u30f3\u9023\u52d5
+// ============================================================
+const PROVIDER_MAP = {};
+PROVIDER_MASTER.forEach(p => { PROVIDER_MAP[p.ppr_code.toUpperCase()] = p.name; });
+
+function _setProvider(code, name) {
+  document.getElementById('p_ppr_code').value = code;
+  document.getElementById('p_provider').value = name;
+  const disp = document.getElementById('p_provider_name_display');
+  disp.textContent = '\u2705 ' + name;
+  disp.style.color = '#1b5e20';
+  document.getElementById('p_provider_select').value = code.toUpperCase();
+}
+
+function onProviderCodeInput() {
+  const code = document.getElementById('p_ppr_code').value.trim().toUpperCase();
+  const disp = document.getElementById('p_provider_name_display');
+  const hidden = document.getElementById('p_provider');
+  if (code && PROVIDER_MAP[code]) {
+    hidden.value = PROVIDER_MAP[code];
+    disp.textContent = '\u2705 ' + PROVIDER_MAP[code];
+    disp.style.color = '#1b5e20';
+    document.getElementById('p_provider_select').value = code;
+  } else if (code) {
+    hidden.value = '';
+    disp.textContent = '\u274c \u672a\u767b\u9332\u306e\u30b3\u30fc\u30c9';
+    disp.style.color = '#c0392b';
+    document.getElementById('p_provider_select').value = '';
+  } else {
+    hidden.value = '';
+    disp.textContent = '';
+    document.getElementById('p_provider_select').value = '';
+  }
+}
+
+function onProviderSelectChange() {
+  const code = document.getElementById('p_provider_select').value;
+  if (code && PROVIDER_MAP[code]) {
+    _setProvider(code, PROVIDER_MAP[code]);
+  }
+}
+
+// ============================================================
+// \u5f01\u8b77\u58eb\u30b3\u30fc\u30c9\u5165\u529b \u2192 \u540d\u524d\u3092\u30ea\u30a2\u30eb\u30bf\u30a4\u30e0\u8868\u793a
+// ============================================================
+const AGENT_MAP = {};
+AGENT_MASTER.forEach(a => { AGENT_MAP[a.agent_code.toUpperCase()] = { name: a.name, office: a.office }; });
+
+function onAgentCodeInput() {
+  const code = document.getElementById('l_agent_code').value.trim().toUpperCase();
+  const disp = document.getElementById('l_agent_name_display');
+  const hidden = document.getElementById('l_lawyer_id');
+  if (code && AGENT_MAP[code]) {
+    hidden.value = code;
+    disp.textContent = '\u2705 ' + AGENT_MAP[code].name + '\uff08' + AGENT_MAP[code].office + '\uff09';
+    disp.style.color = '#4527a0';
+  } else if (code) {
+    hidden.value = '';
+    disp.textContent = '\u274c \u672a\u767b\u9332\u306e\u30b3\u30fc\u30c9';
+    disp.style.color = '#c0392b';
+  } else {
+    hidden.value = '';
+    disp.textContent = '';
+  }
+}
+
+// \u30d7\u30ed\u30d0\u30a4\u30c0\u30bb\u30ec\u30af\u30c8\u521d\u671f\u5316
+(function initSelects() {
+  const pSel = document.getElementById('p_provider_select');
+  PROVIDER_MASTER.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.ppr_code.toUpperCase();
+    opt.textContent = p.name + '\u3000(' + p.ppr_code + ')';
+    pSel.appendChild(opt);
+  });
+})();
+
+// Ctrl+Enter \u3067\u8ffd\u52a0
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.ctrlKey) {
+    const active = ['provider','lawyer','self'].find(t => document.getElementById('section-'+t).classList.contains('active'));
+    if (active === 'provider') addProvider();
+    else if (active === 'lawyer') addLawyer();
+    else addSelf();
+  }
+});
+
+</script>
+</body>
+</html>

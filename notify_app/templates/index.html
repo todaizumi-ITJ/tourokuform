@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>新規案件 通知判定システム</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI','Hiragino Sans','Yu Gothic',sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+
+/* ── ヘッダー ── */
+.header {
+  background: linear-gradient(135deg, #1a1f2e, #16213e);
+  border-bottom: 1px solid #2d3748;
+  padding: 16px 32px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.header h1 { font-size: 20px; font-weight: 700; color: #fff; }
+.header h1 span { color: #667eea; }
+.db-status { display: flex; gap: 16px; align-items: center; }
+.db-badge {
+  background: #1e2533; border: 1px solid #2d3748;
+  border-radius: 8px; padding: 6px 12px; font-size: 12px; color: #a0aec0;
+}
+.db-badge b { color: #48bb78; }
+.btn-reload {
+  background: #2d3748; border: 1px solid #4a5568;
+  color: #e2e8f0; border-radius: 8px; padding: 6px 14px;
+  font-size: 12px; cursor: pointer; transition: all 0.2s;
+}
+.btn-reload:hover { background: #4a5568; }
+
+/* ── メインレイアウト ── */
+.container { padding: 24px 32px; max-width: 1600px; margin: 0 auto; }
+
+/* ── ドロップゾーン ── */
+.drop-zone {
+  border: 2px dashed #4a5568;
+  border-radius: 16px;
+  padding: 48px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: #1a1f2e;
+  margin-bottom: 24px;
+}
+.drop-zone.drag-over {
+  border-color: #667eea;
+  background: #1e2233;
+  box-shadow: 0 0 24px rgba(102,126,234,0.2);
+}
+.drop-icon { font-size: 48px; margin-bottom: 12px; }
+.drop-title { font-size: 18px; font-weight: 600; color: #e2e8f0; margin-bottom: 6px; }
+.drop-sub { font-size: 13px; color: #718096; }
+.drop-sub span { color: #667eea; cursor: pointer; text-decoration: underline; }
+#file-input { display: none; }
+.file-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 16px; }
+.chip {
+  background: #2d3748; border-radius: 20px;
+  padding: 4px 12px; font-size: 12px; color: #a0aec0;
+  display: flex; align-items: center; gap: 6px;
+}
+.chip .remove { cursor: pointer; color: #718096; font-size: 14px; }
+.chip .remove:hover { color: #fc8181; }
+
+/* ── ボタン ── */
+.btn-primary {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border: none; color: #fff; border-radius: 10px;
+  padding: 12px 32px; font-size: 15px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s; width: 100%;
+  margin-bottom: 24px;
+}
+.btn-primary:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(102,126,234,0.4); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.btn-excel {
+  background: #276221; border: 1px solid #48bb78;
+  color: #c6efce; border-radius: 8px; padding: 8px 20px;
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+}
+.btn-excel:hover { background: #2d7a27; }
+.btn-excel:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── KPIカード ── */
+.kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 24px; }
+.kpi-card {
+  background: #1a1f2e; border: 1px solid #2d3748;
+  border-radius: 12px; padding: 18px; position: relative; overflow: hidden;
+}
+.kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+.kpi-card.total::before  { background: linear-gradient(90deg,#667eea,#764ba2); }
+.kpi-card.notify::before { background: linear-gradient(90deg,#48bb78,#38a169); }
+.kpi-card.suppress::before { background: linear-gradient(90deg,#fc8181,#e53e3e); }
+.kpi-card.rate::before   { background: linear-gradient(90deg,#ed8936,#dd6b20); }
+.kpi-label { font-size: 11px; color: #718096; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+.kpi-value { font-size: 34px; font-weight: 800; }
+.kpi-card.total  .kpi-value { color: #667eea; }
+.kpi-card.notify .kpi-value { color: #48bb78; }
+.kpi-card.suppress .kpi-value { color: #fc8181; }
+.kpi-card.rate   .kpi-value { color: #ed8936; }
+.kpi-sub { font-size: 11px; color: #718096; margin-top: 4px; }
+
+/* ── フィルター・検索 ── */
+.toolbar {
+  display: flex; gap: 10px; align-items: center;
+  margin-bottom: 14px; flex-wrap: wrap;
+}
+.filter-btns { display: flex; gap: 6px; }
+.filter-btn {
+  background: #2d3748; border: 1px solid #4a5568;
+  color: #a0aec0; border-radius: 8px; padding: 6px 14px;
+  font-size: 12px; cursor: pointer; transition: all 0.2s;
+}
+.filter-btn:hover { background: #4a5568; }
+.filter-btn.active { background: #667eea; border-color: #667eea; color: #fff; }
+.filter-btn.ok.active { background: #276221; border-color: #48bb78; color: #c6efce; }
+.filter-btn.ng.active { background: #742222; border-color: #fc8181; color: #fed7d7; }
+.search-input {
+  background: #1e2533; border: 1px solid #2d3748;
+  border-radius: 8px; color: #e2e8f0; padding: 7px 14px;
+  font-size: 13px; outline: none; flex: 1; min-width: 200px;
+  transition: border-color 0.2s;
+}
+.search-input:focus { border-color: #667eea; }
+.result-count { font-size: 12px; color: #718096; margin-left: auto; }
+
+/* ── テーブル ── */
+.table-wrap {
+  background: #1a1f2e; border: 1px solid #2d3748; border-radius: 12px;
+  overflow: hidden;
+}
+.table-scroll { overflow-x: auto; max-height: 60vh; overflow-y: auto; }
+.table-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.table-scroll::-webkit-scrollbar-track { background: #1a1f2e; }
+.table-scroll::-webkit-scrollbar-thumb { background: #2d3748; border-radius: 3px; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+thead th {
+  background: #16213e; color: #718096; font-weight: 600;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+  padding: 10px 12px; text-align: left; border-bottom: 1px solid #2d3748;
+  white-space: nowrap; position: sticky; top: 0; z-index: 1;
+}
+tbody td {
+  padding: 9px 12px; border-bottom: 1px solid #1e2533;
+  color: #e2e8f0; white-space: nowrap; max-width: 240px;
+  overflow: hidden; text-overflow: ellipsis; vertical-align: middle;
+}
+tbody tr:hover td { background: #1e2533; }
+tbody tr.ng-row { cursor: pointer; }
+tbody tr.ng-row:hover td { background: #2a1a1a; }
+tbody tr:last-child td { border-bottom: none; }
+.judgment-badge {
+  display: inline-block; padding: 3px 10px; border-radius: 12px;
+  font-size: 11px; font-weight: 700; white-space: nowrap;
+}
+.badge-ok { background: #c6efce; color: #276221; }
+.badge-ng { background: #ffcccc; color: #9c0006; }
+.badge-ng2 { background: #ffe0cc; color: #7b3000; }
+.mandate-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 10px;
+  font-size: 10px; font-weight: 600;
+}
+.mb-mandated { background: #2a1f3d; color: #9f7aea; }
+.mb-other { background: #1e2533; color: #718096; }
+.detail-hint {
+  font-size: 10px; color: #667eea; display: block;
+  margin-top: 2px; text-align: center;
+}
+
+/* ── 理由内訳 ── */
+.reason-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px; margin-bottom: 24px;
+}
+.reason-card {
+  background: #1a1f2e; border: 1px solid #2d3748;
+  border-radius: 10px; padding: 12px 16px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.reason-text { font-size: 12px; color: #a0aec0; flex: 1; }
+.reason-count { font-size: 18px; font-weight: 700; color: #667eea; margin-left: 10px; }
+
+/* ── ローディング ── */
+.spinner {
+  display: inline-block; width: 18px; height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff; border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin-right: 8px; vertical-align: middle;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── 空状態 ── */
+.empty-state { text-align: center; padding: 60px; color: #4a5568; font-size: 14px; }
+.empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+
+/* ── Toast ── */
+.toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: #2d3748; color: #e2e8f0; border-radius: 10px;
+  padding: 12px 20px; font-size: 13px; z-index: 9999;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  transform: translateY(80px); opacity: 0;
+  transition: all 0.3s; pointer-events: none;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { border-left: 4px solid #48bb78; }
+.toast.error   { border-left: 4px solid #fc8181; }
+
+/* ── モーダル ── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75); backdrop-filter: blur(4px);
+  z-index: 1000; display: flex; align-items: center; justify-content: center;
+  opacity: 0; visibility: hidden; transition: all 0.2s;
+}
+.modal-overlay.open { opacity: 1; visibility: visible; }
+.modal {
+  background: #1a1f2e; border: 1px solid #2d3748; border-radius: 16px;
+  width: 90vw; max-width: 1000px; max-height: 85vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  transform: scale(0.95); transition: transform 0.2s;
+}
+.modal-overlay.open .modal { transform: scale(1); }
+.modal-header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #2d3748;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+}
+.modal-title { font-size: 16px; font-weight: 700; color: #fff; }
+.modal-subtitle { font-size: 12px; color: #718096; margin-top: 4px; }
+.modal-close {
+  background: #2d3748; border: none; color: #a0aec0;
+  border-radius: 8px; padding: 6px 12px; cursor: pointer;
+  font-size: 14px; flex-shrink: 0; transition: all 0.2s;
+}
+.modal-close:hover { background: #4a5568; color: #fff; }
+
+/* 新規案件サマリー */
+.modal-new-card {
+  background: #16213e; border: 1px solid #2d3748; border-radius: 10px;
+  padding: 14px 20px; margin: 16px 24px 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;
+}
+.modal-field { display: flex; flex-direction: column; gap: 2px; }
+.modal-field-label { font-size: 10px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; }
+.modal-field-value { font-size: 13px; color: #e2e8f0; word-break: break-all; }
+.modal-field-value.highlight { color: #fc8181; font-weight: 700; }
+.modal-field-value.ok-val { color: #48bb78; font-weight: 700; }
+
+/* 同姓同名候補テーブル */
+.modal-body { flex: 1; overflow-y: auto; padding: 16px 24px 24px; }
+.modal-body::-webkit-scrollbar { width: 6px; }
+.modal-body::-webkit-scrollbar-track { background: #1a1f2e; }
+.modal-body::-webkit-scrollbar-thumb { background: #2d3748; border-radius: 3px; }
+.cand-section-title {
+  font-size: 12px; color: #a0aec0; margin-bottom: 10px; margin-top: 16px;
+  display: flex; align-items: center; gap: 8px;
+}
+.cand-section-title::after {
+  content: ''; flex: 1; height: 1px; background: #2d3748;
+}
+.cand-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.cand-table th {
+  background: #16213e; color: #718096; font-weight: 600;
+  font-size: 11px; padding: 8px 10px; text-align: left;
+  border-bottom: 1px solid #2d3748; white-space: nowrap;
+}
+.cand-table td {
+  padding: 9px 10px; border-bottom: 1px solid #1e2533;
+  color: #e2e8f0; vertical-align: middle;
+}
+.cand-table tr:last-child td { border-bottom: none; }
+.cand-table tr.mandated-row td { background: rgba(252,129,129,0.06); }
+.cand-table tr.mandated-row:hover td { background: rgba(252,129,129,0.12); }
+.cand-status {
+  display: inline-block; padding: 2px 8px; border-radius: 10px;
+  font-size: 10px; font-weight: 700;
+}
+.cs-mandated { background: #2a1f3d; color: #e9d8fd; border: 1px solid #553c9a; }
+.cs-other { background: #1e2533; color: #718096; }
+.addr-match-ok { color: #48bb78; font-weight: 600; font-size: 11px; }
+.addr-match-mid { color: #ed8936; font-size: 11px; }
+.addr-match-no { color: #718096; font-size: 11px; }
+.no-cand { color: #4a5568; text-align: center; padding: 20px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<!-- ヘッダー -->
+<div class="header">
+  <h1>新規案件 <span>通知判定</span>システム</h1>
+  <div class="db-status">
+    <div class="db-badge">既存DB <b id="human-count">-</b> 件</div>
+    <div class="db-badge">IPN対応表 <b id="ipn-count">-</b> 件</div>
+    <div class="db-badge">包括和解CP <b id="settled-cp">-</b></div>
+    <button class="btn-reload" onclick="reloadDb()">🔄 DB再読み込み</button>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- ドロップゾーン -->
+  <div class="drop-zone" id="drop-zone"
+    ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)"
+    onclick="document.getElementById('file-input').click()">
+    <div class="drop-icon">📂</div>
+    <div class="drop-title">HTMLファイルをここにドロップ</div>
+    <div class="drop-sub">またはクリックして<span>ファイルを選択</span>（複数可）</div>
+    <div class="file-chips" id="file-chips"></div>
+  </div>
+  <input type="file" id="file-input" multiple accept=".html" onchange="onFileSelect(this.files)">
+
+  <!-- 判定ボタン -->
+  <button class="btn-primary" id="btn-judge" onclick="runJudge()" disabled>
+    ⚖️ 判定を実行
+  </button>
+
+  <!-- KPI -->
+  <div class="kpi-row" id="kpi-row" style="display:none;">
+    <div class="kpi-card total">
+      <div class="kpi-label">総件数</div>
+      <div class="kpi-value" id="kpi-total">0</div>
+      <div class="kpi-sub">新規入力ファイル合計</div>
+    </div>
+    <div class="kpi-card notify">
+      <div class="kpi-label">✅ 通知する</div>
+      <div class="kpi-value" id="kpi-notify">0</div>
+      <div class="kpi-sub">弁護士への通知対象</div>
+    </div>
+    <div class="kpi-card suppress">
+      <div class="kpi-label">❌ 通知しない</div>
+      <div class="kpi-value" id="kpi-suppress">0</div>
+      <div class="kpi-sub">抑制対象</div>
+    </div>
+    <div class="kpi-card rate">
+      <div class="kpi-label">通知率</div>
+      <div class="kpi-value" id="kpi-rate">0%</div>
+      <div class="kpi-sub">全件中の通知対象割合</div>
+    </div>
+  </div>
+
+  <!-- 理由内訳 -->
+  <div class="reason-grid" id="reason-grid" style="display:none;"></div>
+
+  <!-- ツールバー -->
+  <div class="toolbar" id="toolbar" style="display:none;">
+    <div class="filter-btns">
+      <button class="filter-btn active" onclick="setFilter('all', this)">すべて</button>
+      <button class="filter-btn ok" onclick="setFilter('ok', this)">✅ 通知する</button>
+      <button class="filter-btn ng" onclick="setFilter('ng', this)">❌ 通知しない</button>
+    </div>
+    <input class="search-input" type="text" id="search-input" placeholder="氏名・住所・理由で検索..." oninput="onSearch()">
+    <span class="result-count" id="result-count"></span>
+    <button class="btn-excel" id="btn-excel" onclick="exportExcel()">⬇ Excelダウンロード</button>
+  </div>
+
+  <!-- テーブル -->
+  <div class="table-wrap" id="table-wrap" style="display:none;">
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>判定</th>
+            <th>氏名</th>
+            <th>住所</th>
+            <th>電話</th>
+            <th>IPN</th>
+            <th>権利者(IPN解決)</th>
+            <th>既存_HN_ID</th>
+            <th>既存_氏名</th>
+            <th>既存_受任状況</th>
+            <th>法律事務所</th>
+            <th>既存_権利者</th>
+            <th>住所一致度</th>
+            <th>判定理由</th>
+            <th>ファイル</th>
+          </tr>
+        </thead>
+        <tbody id="result-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- ─────────── 詳細モーダル ─────────── -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-title">❌ 通知しない — 詳細</div>
+        <div class="modal-subtitle" id="modal-subtitle"></div>
+      </div>
+      <button class="modal-close" onclick="closeModalDirect()">✕ 閉じる</button>
+    </div>
+
+    <!-- 新規案件サマリー -->
+    <div class="modal-new-card" id="modal-new-card"></div>
+
+    <!-- 候補一覧 -->
+    <div class="modal-body">
+      <div class="cand-section-title" id="cand-title">同姓同名 既存DB候補</div>
+      <div id="modal-cand-content"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ========================
+// 状態管理
+// ========================
+let selectedFiles = [];
+let allResults = [];
+let currentFilter = 'all';
+
+// ========================
+// DB状態取得
+// ========================
+async function loadDbStatus() {
+  try {
+    const res = await fetch('/api/db-status');
+    const d = await res.json();
+    document.getElementById('human-count').textContent = d.human_count.toLocaleString();
+    document.getElementById('ipn-count').textContent = d.ipn_count.toLocaleString();
+    document.getElementById('settled-cp').textContent = d.settled_cp.join(', ');
+  } catch(e) { console.error(e); }
+}
+
+async function reloadDb() {
+  const btn = document.querySelector('.btn-reload');
+  btn.textContent = '🔄 再読み込み中...'; btn.disabled = true;
+  try {
+    const res = await fetch('/api/reload-db', { method: 'POST' });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error);
+    showToast(d.message, 'success');
+    await loadDbStatus();
+  } catch(e) {
+    showToast('エラー: ' + e.message, 'error');
+  } finally {
+    btn.textContent = '🔄 DB再読み込み'; btn.disabled = false;
+  }
+}
+
+// ========================
+// ファイル選択
+// ========================
+function onDragOver(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.add('drag-over');
+}
+function onDragLeave(e) {
+  document.getElementById('drop-zone').classList.remove('drag-over');
+}
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('drag-over');
+  addFiles([...e.dataTransfer.files].filter(f => f.name.endsWith('.html')));
+}
+function onFileSelect(files) {
+  addFiles([...files].filter(f => f.name.endsWith('.html')));
+}
+function addFiles(files) {
+  files.forEach(f => {
+    if (!selectedFiles.find(x => x.name === f.name)) selectedFiles.push(f);
+  });
+  renderChips();
+  document.getElementById('btn-judge').disabled = selectedFiles.length === 0;
+}
+function removeFile(name) {
+  selectedFiles = selectedFiles.filter(f => f.name !== name);
+  renderChips();
+  document.getElementById('btn-judge').disabled = selectedFiles.length === 0;
+}
+function renderChips() {
+  const el = document.getElementById('file-chips');
+  el.innerHTML = selectedFiles.map(f =>
+    `<div class="chip">📄 ${f.name}
+      <span class="remove" onclick="removeFile('${f.name}');event.stopPropagation()">✕</span>
+    </div>`
+  ).join('');
+}
+
+// ========================
+// 判定実行
+// ========================
+async function runJudge() {
+  const btn = document.getElementById('btn-judge');
+  btn.innerHTML = '<span class="spinner"></span>判定中...';
+  btn.disabled = true;
+
+  try {
+    const fd = new FormData();
+    selectedFiles.forEach(f => fd.append('files', f));
+
+    const res = await fetch('/api/judge', { method: 'POST', body: fd });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error);
+
+    allResults = d.results;
+    updateKPI(d);
+    renderReasons(d.reasons);
+    renderTable(allResults);
+    showToast(`判定完了: ${d.total}件処理（通知${d.notify}件 / 抑制${d.suppress}件）`, 'success');
+  } catch(e) {
+    showToast('エラー: ' + e.message, 'error');
+  } finally {
+    btn.innerHTML = '⚖️ 判定を実行';
+    btn.disabled = false;
+  }
+}
+
+// ========================
+// KPI更新
+// ========================
+function updateKPI(d) {
+  document.getElementById('kpi-row').style.display = 'grid';
+  document.getElementById('kpi-total').textContent = d.total.toLocaleString();
+  document.getElementById('kpi-notify').textContent = d.notify.toLocaleString();
+  document.getElementById('kpi-suppress').textContent = d.suppress.toLocaleString();
+  document.getElementById('kpi-rate').textContent = d.total > 0
+    ? (d.notify / d.total * 100).toFixed(1) + '%' : '0%';
+}
+
+// ========================
+// 理由内訳
+// ========================
+function renderReasons(reasons) {
+  const el = document.getElementById('reason-grid');
+  el.style.display = 'grid';
+  el.innerHTML = Object.entries(reasons)
+    .sort((a,b) => b[1]-a[1])
+    .map(([k,v]) => `
+      <div class="reason-card">
+        <span class="reason-text">${k}</span>
+        <span class="reason-count">${v.toLocaleString()}</span>
+      </div>`).join('');
+}
+
+// ========================
+// テーブル表示
+// ========================
+function renderTable(rows) {
+  document.getElementById('table-wrap').style.display = 'block';
+  document.getElementById('toolbar').style.display = 'flex';
+  const tbody = document.getElementById('result-tbody');
+
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;padding:40px;color:#4a5568;">該当なし</td></tr>`;
+    document.getElementById('result-count').textContent = '0件';
+    return;
+  }
+
+  document.getElementById('result-count').textContent = rows.length.toLocaleString() + '件';
+
+  tbody.innerHTML = rows.map((r, idx) => {
+    const isOk = r['通知判定'].startsWith('✅');
+    const isS2 = r['判定理由'].includes('条件②');
+    const badgeCls = isOk ? 'badge-ok' : isS2 ? 'badge-ng2' : 'badge-ng';
+    const badge = `<span class="judgment-badge ${badgeCls}">${r['通知判定']}</span>`;
+    const mBadge = r['既存_受任状況'] === '受任済'
+      ? `<span class="mandate-badge mb-mandated">受任済</span>`
+      : `<span class="mandate-badge mb-other">${r['既存_受任状況'] || '-'}</span>`;
+    const ngHint = !isOk ? `<span class="detail-hint">🔍 詳細を見る</span>` : '';
+    const rowCls = !isOk ? 'ng-row' : '';
+    const clickAttr = !isOk ? `onclick="showDetail(${idx})"` : '';
+    const office = r['既存_法律事務所'] || '-';
+    return `<tr class="${rowCls}" ${clickAttr}>
+      <td>${badge}${ngHint}</td>
+      <td title="${r['contract_name']}">${r['contract_name']}</td>
+      <td title="${r['address']}">${r['address']}</td>
+      <td>${r['phone'] || '-'}</td>
+      <td>${r['ipn_id'] || '-'}</td>
+      <td title="${r['rights_holder_ipn']}">${r['rights_holder_ipn'] || '-'}</td>
+      <td>${r['既存_HN_ID'] || '-'}</td>
+      <td title="${r['既存_氏名']}">${r['既存_氏名'] || '-'}</td>
+      <td>${mBadge}</td>
+      <td title="${office}" style="${r['既存_受任状況']==='受任済' ? 'color:#e9d8fd;font-size:11px;' : 'color:#718096;font-size:11px;'}">${office}</td>
+      <td title="${r['既存_権利者']}">${r['既存_権利者'] || '-'}</td>
+      <td>${r['住所一致度'] || '-'}</td>
+      <td title="${r['判定理由']}">${r['判定理由']}</td>
+      <td>${r['source_file']}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ========================
+// フィルター
+// ========================
+let filteredRows = [];
+
+function setFilter(type, btn) {
+  currentFilter = type;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilter();
+}
+
+function onSearch() { applyFilter(); }
+
+function applyFilter() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  let rows = allResults;
+  if (currentFilter === 'ok') rows = rows.filter(r => r['通知判定'].startsWith('✅'));
+  if (currentFilter === 'ng') rows = rows.filter(r => r['通知判定'].startsWith('❌'));
+  if (q) rows = rows.filter(r =>
+    r['contract_name'].toLowerCase().includes(q) ||
+    r['address'].toLowerCase().includes(q) ||
+    r['判定理由'].toLowerCase().includes(q) ||
+    (r['既存_氏名'] || '').toLowerCase().includes(q) ||
+    (r['rights_holder_ipn'] || '').toLowerCase().includes(q)
+  );
+  filteredRows = rows;
+  renderTable(rows);
+}
+
+// ========================
+// 詳細モーダル
+// ========================
+function showDetail(tableIdx) {
+  // filteredRowsが空の場合はallResultsから取得
+  const src = filteredRows.length > 0 ? filteredRows : allResults;
+  const r = src[tableIdx];
+  if (!r) return;
+
+  // タイトル
+  document.getElementById('modal-title').textContent =
+    `❌ 通知しない — ${r['contract_name']}`;
+  document.getElementById('modal-subtitle').textContent =
+    `判定理由: ${r['判定理由']}`;
+
+  // 新規案件サマリー
+  const newCard = document.getElementById('modal-new-card');
+  newCard.innerHTML = [
+    ['氏名（新規）', r['contract_name'], true],
+    ['住所（新規）', r['address'] || '—', false],
+    ['電話',        r['phone'] || '—', false],
+    ['メール',      r['email'] || '—', false],
+    ['IPN',         r['ipn_id'] || '—（なし）', !r['ipn_id']],
+    ['CP権利者',    r['rights_holder_ipn'] || '—（未解決）', false],
+    ['CP番号',      r['cp_num'] != null ? r['cp_num'] : '—', false],
+    ['ソースファイル', r['source_file'] || '—', false],
+  ].map(([label, val, warn]) =>
+    `<div class="modal-field">
+      <span class="modal-field-label">${label}</span>
+      <span class="modal-field-value ${warn ? 'highlight' : ''}">${esc(val)}</span>
+    </div>`
+  ).join('');
+
+  // 候補一覧
+  const candidates = r['candidates_detail'] || [];
+  const candTitle = document.getElementById('cand-title');
+  candTitle.textContent = `同姓同名 既存DB候補（${candidates.length}件）`;
+
+  const content = document.getElementById('modal-cand-content');
+  if (candidates.length === 0) {
+    content.innerHTML = `<div class="no-cand">候補詳細データなし（既存HN_ID: ${esc(r['既存_HN_ID'] || '—')}）</div>`;
+  } else {
+    content.innerHTML = `
+      <table class="cand-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>HN_ID</th>
+            <th>氏名</th>
+            <th>住所</th>
+            <th>受任状況</th>
+            <th>和解状況</th>
+            <th>KMP進捗</th>
+            <th>権利者</th>
+            <th>法律事務所</th>
+            <th>担当弁護士</th>
+            <th>住所一致度</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${candidates.map((c, i) => {
+            const isMandated = c.mandate_status === '受任済';
+            const rowCls = isMandated ? 'mandated-row' : '';
+            const statusCls = isMandated ? 'cs-mandated' : 'cs-other';
+            const addrCls = c.addr_match.includes('前20') ? 'addr-match-ok'
+                          : c.addr_match.includes('前12') ? 'addr-match-mid'
+                          : 'addr-match-no';
+            const officeVal = c.lawyer_office || '—';
+            const lawyerVal = c.lawyer_name || '—';
+            return `<tr class="${rowCls}">
+              <td style="color:#718096;">${i+1}</td>
+              <td>${esc(c.hn_id)}</td>
+              <td>${esc(c.contract_name)}</td>
+              <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;" title="${esc(c.address)}">${esc(c.address)}</td>
+              <td><span class="cand-status ${statusCls}">${esc(c.mandate_status || '—')}</span></td>
+              <td>${esc(c.settlement_status || '—')}</td>
+              <td>${esc(c.kmp_progress || '—')}</td>
+              <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;" title="${esc(c.rights_holder)}">${esc(c.rights_holder || '—')}</td>
+              <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;${isMandated ? 'color:#e9d8fd;font-weight:600;' : ''}" title="${esc(officeVal)}">${esc(officeVal)}</td>
+              <td style="${isMandated ? 'color:#e9d8fd;' : ''}">${esc(lawyerVal)}</td>
+              <td><span class="${addrCls}">${esc(c.addr_match || '—')}</span></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModalDirect();
+}
+function closeModalDirect() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModalDirect();
+});
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ========================
+// Excel出力
+// ========================
+async function exportExcel() {
+  const btn = document.getElementById('btn-excel');
+  btn.textContent = '⬇ 生成中...'; btn.disabled = true;
+  try {
+    const res = await fetch('/api/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ results: allResults }),
+    });
+    if (!res.ok) throw new Error('生成失敗');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `通知判定結果_${new Date().toISOString().slice(0,10)}.xlsx`;
+    a.click(); URL.revokeObjectURL(url);
+    showToast('Excelをダウンロードしました', 'success');
+  } catch(e) {
+    showToast('エラー: ' + e.message, 'error');
+  } finally {
+    btn.textContent = '⬇ Excelダウンロード'; btn.disabled = false;
+  }
+}
+
+// ========================
+// Toast通知
+// ========================
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// ========================
+// 初期化
+// ========================
+filteredRows = [];
+loadDbStatus();
+</script>
+</body>
+</html>

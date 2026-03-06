@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IPN検索 | IP × タイムスタンプ</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Helvetica Neue', Arial, 'Hiragino Sans', sans-serif; background: #f0f2f5; color: #1a1a1a; }
+
+  header {
+    background: #1F3864;
+    color: white;
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  header h1 { font-size: 1.2rem; font-weight: 600; }
+  header a { color: rgba(255,255,255,0.7); text-decoration: none; font-size: 0.85rem; margin-left: auto; }
+  header a:hover { color: white; }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+
+  .card {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    padding: 28px;
+    margin-bottom: 24px;
+  }
+  .card h2 { font-size: 1rem; font-weight: 700; color: #1F3864; margin-bottom: 16px; border-left: 4px solid #1F3864; padding-left: 10px; }
+
+  /* CSV入力エリア */
+  .input-area {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    align-items: start;
+  }
+  textarea {
+    width: 100%;
+    height: 160px;
+    border: 1px solid #d0d7de;
+    border-radius: 8px;
+    padding: 12px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    resize: vertical;
+    line-height: 1.6;
+    color: #1a1a1a;
+    background: #fafafa;
+  }
+  textarea:focus { outline: none; border-color: #1F3864; background: white; box-shadow: 0 0 0 3px rgba(31,56,100,0.1); }
+  textarea::placeholder { color: #aaa; }
+
+  .btn-wrap { display: flex; flex-direction: column; gap: 8px; }
+  button {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn-primary { background: #1F3864; color: white; }
+  .btn-primary:hover { background: #162a4a; }
+  .btn-primary:disabled { background: #9aa5b4; cursor: not-allowed; }
+  .btn-clear { background: #f0f2f5; color: #555; font-size: 0.85rem; padding: 8px 16px; }
+  .btn-clear:hover { background: #e0e3e8; }
+
+  .hint { font-size: 0.8rem; color: #888; margin-top: 8px; line-height: 1.6; }
+  .hint code { background: #f0f2f5; padding: 1px 5px; border-radius: 3px; font-family: monospace; }
+
+  /* 統計バー */
+  .stats-bar {
+    display: flex;
+    gap: 20px;
+    padding: 16px 20px;
+    background: #f8f9fb;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .stat-item { display: flex; flex-direction: column; gap: 2px; }
+  .stat-label { font-size: 0.75rem; color: #666; }
+  .stat-val { font-size: 1.4rem; font-weight: 700; }
+  .stat-val.found { color: #276221; }
+  .stat-val.notfound { color: #9C0006; }
+  .stat-val.total { color: #1F3864; }
+
+  /* 結果テーブル */
+  .results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .filter-tabs { display: flex; gap: 6px; }
+  .tab {
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.15s;
+  }
+  .tab.all { background: #e8ecf0; color: #444; }
+  .tab.all.active, .tab.all:hover { background: #1F3864; color: white; }
+  .tab.found { background: #e8f5e9; color: #276221; }
+  .tab.found.active, .tab.found:hover { background: #276221; color: white; }
+  .tab.notfound { background: #ffeaea; color: #9C0006; }
+  .tab.notfound.active, .tab.notfound:hover { background: #9C0006; color: white; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  th {
+    background: #1F3864;
+    color: white;
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.8rem;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  td { padding: 9px 12px; border-bottom: 1px solid #eef0f3; vertical-align: middle; }
+  tr:hover td { background: #f8faff; }
+  tr.not-found-row td { color: #aaa; font-style: italic; }
+
+  .ipn-badge {
+    display: inline-block;
+    background: #1F3864;
+    color: white;
+    font-weight: 700;
+    font-family: monospace;
+    font-size: 0.9rem;
+    padding: 3px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.15s;
+    letter-spacing: 1px;
+  }
+  .ipn-badge:hover { background: #162a4a; }
+  .multi-badge { display: flex; flex-wrap: wrap; gap: 4px; }
+
+  .status-ok { color: #276221; font-weight: 600; }
+  .status-ng { color: #9C0006; }
+  .status-na { color: #aaa; }
+
+  .not-found-tag {
+    display: inline-block;
+    background: #ffeaea;
+    color: #9C0006;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+
+  /* モーダル詳細 */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 40px 20px;
+    overflow-y: auto;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: white;
+    border-radius: 14px;
+    width: 100%;
+    max-width: 700px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    overflow: hidden;
+    animation: slideIn 0.2s ease;
+  }
+  @keyframes slideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  .modal-header {
+    background: #1F3864;
+    color: white;
+    padding: 18px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .modal-header h3 { font-size: 1.1rem; font-weight: 700; font-family: monospace; letter-spacing: 2px; }
+  .modal-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.4rem;
+    cursor: pointer;
+    padding: 0 6px;
+    line-height: 1;
+    opacity: 0.8;
+  }
+  .modal-close:hover { opacity: 1; }
+
+  .modal-body { padding: 24px; }
+
+  .detail-section { margin-bottom: 20px; }
+  .detail-section h4 {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #888;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #eee;
+  }
+  .detail-grid { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; }
+  .detail-label { font-size: 0.82rem; color: #666; padding-top: 2px; }
+  .detail-value { font-size: 0.9rem; color: #1a1a1a; font-weight: 500; word-break: break-all; }
+  .detail-value.mono { font-family: monospace; font-size: 0.85rem; }
+  .detail-value.big { font-size: 1.2rem; font-weight: 700; color: #1F3864; font-family: monospace; letter-spacing: 2px; }
+
+  /* ローディング */
+  .loading { display: none; text-align: center; padding: 40px; color: #888; }
+  .loading.show { display: block; }
+  .spinner {
+    width: 40px; height: 40px;
+    border: 4px solid #e0e3e8;
+    border-top: 4px solid #1F3864;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .empty-state { text-align: center; padding: 60px 20px; color: #aaa; }
+  .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>🔍</div>
+  <h1>IPN検索 — IP × タイムスタンプ</h1>
+  <a href="/">← 通知判定に戻る</a>
+</header>
+
+<div class="container">
+
+  <!-- 入力カード -->
+  <div class="card">
+    <h2>CSV入力（IP・タイムスタンプ）</h2>
+    <div class="input-area">
+      <div>
+        <textarea id="csvInput" placeholder="IPアドレス,タイムスタンプ
+60.122.20.131,2024/02/22 19:09:49
+219.99.24.152,2023/06/28 04:41:12
+126.77.142.47,2023/12/17 11:05:56"></textarea>
+        <div class="hint">
+          1行目はヘッダー行として自動スキップします。<br>
+          カンマ区切りで <code>IPアドレス,タイムスタンプ</code> の順に貼り付けてください。<br>
+          タイムスタンプ形式: <code>2024/02/22 19:09:49</code> または <code>2024-02-22 19:09:49</code>
+        </div>
+      </div>
+      <div class="btn-wrap">
+        <button class="btn-primary" id="searchBtn" onclick="doSearch()">🔍 検索</button>
+        <button class="btn-clear" onclick="clearAll()">クリア</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ローディング -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <div>検索中...</div>
+  </div>
+
+  <!-- 結果エリア -->
+  <div id="resultArea" style="display:none;">
+    <div class="card">
+      <!-- 統計 -->
+      <div class="stats-bar" id="statsBar"></div>
+
+      <!-- フィルタタブ -->
+      <div class="results-header">
+        <div class="filter-tabs">
+          <div class="tab all active" onclick="filterTab('all')">すべて</div>
+          <div class="tab found" onclick="filterTab('found')">✅ 発見</div>
+          <div class="tab notfound" onclick="filterTab('notfound')">❌ 未発見</div>
+        </div>
+        <div style="font-size:0.82rem; color:#888;" id="filterCount"></div>
+      </div>
+
+      <!-- テーブル -->
+      <div style="overflow-x:auto; max-height:600px; overflow-y:auto;">
+        <table id="resultTable">
+          <thead>
+            <tr>
+              <th style="width:40px;">#</th>
+              <th>IPアドレス</th>
+              <th>タイムスタンプ</th>
+              <th>IPN</th>
+              <th>権利者</th>
+              <th>受任状況</th>
+            </tr>
+          </thead>
+          <tbody id="resultBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="empty-state" id="emptyState">
+    <div class="icon">🔍</div>
+    <div>CSVを入力して検索してください</div>
+  </div>
+
+</div>
+
+<!-- 詳細モーダル -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <h3 id="modalIPN"></h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+let allResults = [];
+let currentFilter = 'all';
+
+// タイムスタンプ正規化（ハイフン→スラッシュ）
+function normTs(ts) {
+  return ts.replace(/-/g, '/').trim();
+}
+
+async function doSearch() {
+  const raw = document.getElementById('csvInput').value.trim();
+  if (!raw) return;
+
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  const rows = [];
+  let skip = 0;
+
+  for (const line of lines) {
+    const parts = line.split(',');
+    if (parts.length < 2) continue;
+    const ip = parts[0].trim();
+    const ts = normTs(parts.slice(1).join(',').trim());
+    // ヘッダー行スキップ（IPアドレス列がIPでない）
+    if (!/^\d+\.\d+\.\d+\.\d+$/.test(ip)) { skip++; continue; }
+    rows.push({ ip, timestamp: ts });
+  }
+
+  if (rows.length === 0) {
+    alert('有効なデータが見つかりません。IP,タイムスタンプ の形式で入力してください。');
+    return;
+  }
+
+  document.getElementById('loading').classList.add('show');
+  document.getElementById('resultArea').style.display = 'none';
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('searchBtn').disabled = true;
+
+  try {
+    const res = await fetch('/api/lookup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows })
+    });
+    const data = await res.json();
+    allResults = [];
+
+    // 発見分
+    for (const r of (data.results || [])) {
+      allResults.push({ ...r, _found: true });
+    }
+    // 未発見分
+    for (const r of (data.not_found_list || [])) {
+      allResults.push({ ip: r.ip, timestamp: r.timestamp, records: [], _found: false });
+    }
+
+    renderTable(allResults);
+    document.getElementById('resultArea').style.display = 'block';
+  } catch(e) {
+    alert('エラー: ' + e.message);
+  } finally {
+    document.getElementById('loading').classList.remove('show');
+    document.getElementById('searchBtn').disabled = false;
+  }
+}
+
+function renderTable(data) {
+  const found = data.filter(r => r._found).length;
+  const notFound = data.filter(r => !r._found).length;
+
+  // 統計
+  document.getElementById('statsBar').innerHTML = `
+    <div class="stat-item"><div class="stat-label">入力件数</div><div class="stat-val total">${data.length}</div></div>
+    <div class="stat-item"><div class="stat-label">✅ IPN発見</div><div class="stat-val found">${found}</div></div>
+    <div class="stat-item"><div class="stat-label">❌ 未発見</div><div class="stat-val notfound">${notFound}</div></div>
+  `;
+
+  filterTab(currentFilter, data);
+}
+
+function filterTab(tab, data) {
+  currentFilter = tab;
+  data = data || allResults;
+
+  // タブのアクティブ切替
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.tab.${tab}`).classList.add('active');
+
+  let filtered;
+  if (tab === 'found') filtered = data.filter(r => r._found);
+  else if (tab === 'notfound') filtered = data.filter(r => !r._found);
+  else filtered = data;
+
+  document.getElementById('filterCount').textContent = `${filtered.length}件表示`;
+
+  const tbody = document.getElementById('resultBody');
+  tbody.innerHTML = '';
+
+  filtered.forEach((row, i) => {
+    const tr = document.createElement('tr');
+    if (!row._found) tr.classList.add('not-found-row');
+
+    const ipnCell = row._found
+      ? row.records.map(rec =>
+          `<span class="ipn-badge" onclick="showDetail(${JSON.stringify(JSON.stringify(rec))})">${rec.ipn_serial}</span>`
+        ).join(' ')
+      : '<span class="not-found-tag">未発見</span>';
+
+    const rh = row._found
+      ? [...new Set(row.records.map(r => r.rights_holder).filter(Boolean))].join(', ')
+      : '—';
+
+    const mandateSet = row._found
+      ? [...new Set(row.records.map(r => r.mandate_status).filter(Boolean))]
+      : [];
+    const mandateHtml = mandateSet.length
+      ? mandateSet.map(s => `<span class="${s === '受任済' ? 'status-ok' : 'status-na'}">${s}</span>`).join(' / ')
+      : '<span class="status-na">—</span>';
+
+    tr.innerHTML = `
+      <td style="color:#aaa; font-size:0.8rem;">${i+1}</td>
+      <td style="font-family:monospace;">${row.ip}</td>
+      <td style="font-family:monospace; font-size:0.82rem;">${row.timestamp}</td>
+      <td><div class="multi-badge">${ipnCell}</div></td>
+      <td style="font-size:0.85rem;">${rh}</td>
+      <td>${mandateHtml}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function showDetail(recJson) {
+  const rec = JSON.parse(recJson);
+  document.getElementById('modalIPN').textContent = rec.ipn_serial || '—';
+
+  const body = document.getElementById('modalBody');
+  body.innerHTML = `
+    <div class="detail-section">
+      <h4>IPN・著作物情報</h4>
+      <div class="detail-grid">
+        <div class="detail-label">IPN</div><div class="detail-value big">${rec.ipn_serial || '—'}</div>
+        <div class="detail-label">CP番号</div><div class="detail-value mono">${rec.cp_num ?? '—'}</div>
+        <div class="detail-label">権利者</div><div class="detail-value">${rec.rights_holder || '—'}</div>
+        <div class="detail-label">CW番号</div><div class="detail-value mono">${rec.cw_num ?? '—'}</div>
+        <div class="detail-label">タイトル</div><div class="detail-value">${rec.title || '—'}</div>
+        <div class="detail-label">品番</div><div class="detail-value mono">${rec.hinban || '—'}</div>
+        <div class="detail-label">メーカー</div><div class="detail-value">${rec.maker || '—'}</div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <h4>侵害情報</h4>
+      <div class="detail-grid">
+        <div class="detail-label">IPアドレス</div><div class="detail-value mono">${rec.ip || '—'}</div>
+        <div class="detail-label">ポート</div><div class="detail-value mono">${rec.port ?? '—'}</div>
+        <div class="detail-label">タイムスタンプ</div><div class="detail-value mono">${rec.ipn_timestamp || '—'}</div>
+        <div class="detail-label">Infohash</div><div class="detail-value mono" style="font-size:0.75rem; word-break:break-all;">${rec.infohash || '—'}</div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <h4>案件・弁護士情報</h4>
+      <div class="detail-grid">
+        <div class="detail-label">HN番号</div><div class="detail-value mono">${rec.hn_id || '—'}</div>
+        <div class="detail-label">氏名</div><div class="detail-value">${rec.contract_name || '—'}</div>
+        <div class="detail-label">カナ</div><div class="detail-value">${rec.contract_name_kana || '—'}</div>
+        <div class="detail-label">住所</div><div class="detail-value">${rec.address || '—'}</div>
+        <div class="detail-label">受任状況</div><div class="detail-value ${rec.mandate_status === '受任済' ? 'status-ok' : ''}">${rec.mandate_status || '—'}</div>
+        <div class="detail-label">和解状況</div><div class="detail-value">${rec.settlement_status || '—'}</div>
+        <div class="detail-label">KMP進捗</div><div class="detail-value">${rec.kmp_progress || '—'}</div>
+        <div class="detail-label">担当弁護士</div><div class="detail-value">${rec.lawyer_name || '—'}</div>
+        <div class="detail-label">事務所</div><div class="detail-value">${rec.lawyer_office_name || '—'}</div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modalOverlay')) {
+    document.getElementById('modalOverlay').classList.remove('open');
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+
+function clearAll() {
+  document.getElementById('csvInput').value = '';
+  document.getElementById('resultArea').style.display = 'none';
+  document.getElementById('emptyState').style.display = 'block';
+  allResults = [];
+}
+
+// Enterキーで検索
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.ctrlKey) doSearch();
+});
+</script>
+</body>
+</html>
